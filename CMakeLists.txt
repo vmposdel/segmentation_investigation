@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8.3)
+project(_task1_histogram_edge_blobs)
+find_package( OpenCV REQUIRED )
+add_executable(histogram_edge_blobs histogram_edge_blobs.cpp)
+target_link_libraries(histogram_edge_blobs ${OpenCV_LIBS} )
