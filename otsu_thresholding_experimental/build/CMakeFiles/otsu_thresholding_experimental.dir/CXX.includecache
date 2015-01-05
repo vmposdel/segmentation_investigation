@@ -1,0 +1,14 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/v/Documents/vision_tasks/segmentation_investigation/segmentation_investigation/otsu_thresholding_experimental/include/otsu_thresholding_experimental.h
+
+/home/v/Documents/vision_tasks/segmentation_investigation/segmentation_investigation/otsu_thresholding_experimental/otsu_thresholding_experimental.cpp
+include/otsu_thresholding_experimental.h
+/home/v/Documents/vision_tasks/segmentation_investigation/segmentation_investigation/otsu_thresholding_experimental/include/otsu_thresholding_experimental.h
+
