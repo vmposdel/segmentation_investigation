@@ -7,11 +7,15 @@ int main( int argc, char** argv )
 {
     cv::Mat frame;
     cv::Mat otsuFrame; 
-    cv::Mat hist;
-    int key = 0;
-    while( key != 'q' )
+    //cv::Mat hist;
+    float hist[256];
+    int key = 1;
+    initParams();
+    while(key != 'q')
     {
         captureFrame(frame);
+        if(frame.channels() == 3)
+            cv::cvtColor(frame, frame, CV_BGR2GRAY);
         calcHistogram(frame, hist);
         calcThresholded(frame, otsuFrame, hist);
         showImages(frame, otsuFrame);
@@ -53,27 +57,45 @@ void captureFrame(cv::Mat& frame)
     //if( cv::waitKey(10)>10 ) break;
 }
 
-void calcHistogram(cv::Mat& frame, cv::Mat& histNorm)
+void calcHistogram(cv::Mat& frame,  float* histNorm)
 {
+    int hist[256];  
+    //position or pixel value of the image
+    int pixelPos; 
+    int h = frame.rows;
+    int w = frame.cols;
+    for(int j = 0; j < frame.rows; ++j)
+    {
+        uchar* histt =  (uchar*) (frame.data + j * frame.step);
+        for(int i = 0; i < frame.cols; i++)
+        {
+            pixelPos = histt[i];
+            hist[pixelPos] += 1;    
+        }
+    }
+
+    for(int i = 0; i < 256; ++i)
+    {
+        histNorm[i] = hist[i] / (float)(w * h);
+        meanglb += ((float)i * histNorm[i]);
+    }
     //array to store histogram
-    cv::Mat hist;
-    int channels[] = {0};
-    int  histSize[] = {32};
-    float range[] = {0, 256};
-    const float* histRange[] = {range};    
-	cv::calcHist(&frame, 1, channels, cv::Mat(), hist, 1, histSize, histRange, true, false);
-    histNorm = hist / (frame.rows * frame.cols);
+    //cv::Mat hist;
+    //int channels[] = {0};
+    //int  histSize[] = {32};
+    //float range[] = {0, 256};
+    //const float* histRange[] = {range};    
+	//cv::calcHist(&frame, 1, channels, cv::Mat(), hist, 1, histSize, histRange, true, false);
+    //histNorm = hist / (frame.rows * frame.cols);
 }
 
-void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
+void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, float* hist)
 {
-   //position or pixel value of the image
-   int pixelPos; 
    //First order cumulative
    for(int i = 0; i <= 255; i++)
    {
-       prbn += static_cast<float>(hist(i));
-       meanitr + = (static_cast<float>(i * hist[i]);
+       prbn += static_cast<float>(hist[i]);
+       meanitr += static_cast<float>(i * hist[i]);
        param1 = static_cast<float>((meanglb * prbn) - meanitr);
        param2 = static_cast<float>(param1 * param1) / static_cast<float>(prbn * (1.0f - prbn));
        if(param2 > param3)

@@ -21,8 +21,8 @@ void initParams();
 
 void captureFrame(cv::Mat& frame);
 
-void calcHistogram(cv::Mat& frame, cv::Mat& histNorm);
+void calcHistogram(cv::Mat& frame, float* histNorm);
 
-void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist);
+void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, float* hist);
 
 void showImages(cv::Mat& frame, cv::Mat& otsuFrame);
