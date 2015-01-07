@@ -1,1 +1,0 @@
-/home/v/Documents/vision_tasks/segmentation_investigation/segmentation_investigation/otsu_thresholding_experimental/build/CMakeFiles/otsu_thresholding_experimental.dir
