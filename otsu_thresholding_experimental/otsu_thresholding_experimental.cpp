@@ -8,10 +8,13 @@ int main( int argc, char** argv )
     cv::Mat frame;
     cv::Mat otsuFrame; 
     cv::Mat hist;
-    int key = 0;
-    while( key != 'q' )
+    int key = 1;
+    initParams();
+    while(key != 'q')
     {
         captureFrame(frame);
+        if(frame.channels() == 3)
+            cv::cvtColor(frame, frame, CV_BGR2GRAY);
         calcHistogram(frame, hist);
         calcThresholded(frame, otsuFrame, hist);
         showImages(frame, otsuFrame);
@@ -53,7 +56,7 @@ void captureFrame(cv::Mat& frame)
     //if( cv::waitKey(10)>10 ) break;
 }
 
-void calcHistogram(cv::Mat& frame, cv::Mat& histNorm)
+void calcHistogram(cv::Mat& frame,  cv::Mat& histNorm)
 {
     //array to store histogram
     cv::Mat hist;
@@ -67,13 +70,13 @@ void calcHistogram(cv::Mat& frame, cv::Mat& histNorm)
 
 void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
 {
-   //position or pixel value of the image
-   int pixelPos; 
+   for(int i = 0; i < 256; i++)
+       meanglb += static_cast<float>(i * hist.at<float>(i));
    //First order cumulative
    for(int i = 0; i <= 255; i++)
    {
-       prbn += static_cast<float>(hist(i));
-       meanitr + = (static_cast<float>(i * hist[i]);
+       prbn += static_cast<float>(hist.at<float>(i));
+       meanitr += static_cast<float>(i * hist.at<float>(i));
        param1 = static_cast<float>((meanglb * prbn) - meanitr);
        param2 = static_cast<float>(param1 * param1) / static_cast<float>(prbn * (1.0f - prbn));
        if(param2 > param3)
