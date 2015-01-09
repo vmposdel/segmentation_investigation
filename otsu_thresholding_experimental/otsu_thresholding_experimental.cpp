@@ -26,7 +26,7 @@ int main( int argc, char** argv )
 
 void initParams()
 {
-     cameraId = 0;
+     cameraId = 1;
      //First order cumulative
      prbn = 0.0;
      //Second order cumulative
@@ -69,12 +69,13 @@ void calcHistogram(cv::Mat& frame, cv::Mat& hue_ch, cv::Mat& histNorm)
     //array to store histogram
     cv::Mat hist;
     int channels[] = {0, 0};
-    int  histSize[] = {128};
-    float range[] = {0, 180};
+    int  histSize[] = {32};
+    float range[] = {0, 256};
     const float* histRange[] = {range};    
 	cv::mixChannels( &frame, 1, &hue_ch, 1, channels, 1);
 	cv::calcHist(&hue_ch, 1, 0, cv::Mat(), hist, 1, histSize, histRange, true, false);
-    histNorm = hist / (hue_ch.rows * hue_ch.cols);
+    cv::normalize( hist, histNorm, 0, 255, NORM_MINMAX, -1, cv::Mat() );
+    //histNorm = hist / (hue_ch.rows * hue_ch.cols);
 }
 
 void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
