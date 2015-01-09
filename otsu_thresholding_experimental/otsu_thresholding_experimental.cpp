@@ -68,7 +68,7 @@ void calcHistogram(cv::Mat& frame, cv::Mat& hue_ch, cv::Mat& histNorm)
 {
     //array to store histogram
     cv::Mat hist;
-    int channels[] = {1, 0};
+    int channels[] = {0, 0};
     int  histSize[] = {32};
     float range[] = {0, 256};
     const float* histRange[] = {range};    
@@ -96,7 +96,7 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
        }
    }
    //Threshold
-   cv::threshold(frame, otsuFrame, optThresVal, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+   cv::threshold(frame, otsuFrame, 0, 255, CV_THRESH_BINARY);
 
    
 }
