@@ -68,7 +68,7 @@ void calcHistogram(cv::Mat& frame, cv::Mat& hue_ch, cv::Mat& histNorm)
 {
     //array to store histogram
     cv::Mat hist;
-    int channels[] = {0, 0};
+    int channels[] = {1, 0};
     int  histSize[] = {32};
     float range[] = {0, 256};
     const float* histRange[] = {range};    
