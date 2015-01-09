@@ -21,7 +21,9 @@ void initParams();
 
 void captureFrame(cv::Mat& frame);
 
-void calcHistogram(cv::Mat& frame, cv::Mat& histNorm);
+void convertImage(cv::Mat& frame, cv::Mat& hue_ch);
+
+void calcHistogram(cv::Mat& frame, cv::Mat& hue_ch, cv::Mat& histNorm);
 
 void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist);
 

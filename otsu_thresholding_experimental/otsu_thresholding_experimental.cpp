@@ -8,14 +8,16 @@ int main( int argc, char** argv )
     cv::Mat frame;
     cv::Mat otsuFrame; 
     cv::Mat hist;
+    cv::Mat hue_ch;
     int key = 1;
     initParams();
     while(key != 'q')
     {
         captureFrame(frame);
         if(frame.channels() == 3)
-            cv::cvtColor(frame, frame, CV_BGR2GRAY);
-        calcHistogram(frame, hist);
+           convertImage(frame, hue_ch); 
+        calcHistogram(frame, hue_ch, hist);
+        hue_ch.copyTo(frame);
         calcThresholded(frame, otsuFrame, hist);
         showImages(frame, otsuFrame);
         key = cv::waitKey(1);
@@ -24,7 +26,7 @@ int main( int argc, char** argv )
 
 void initParams()
 {
-     cameraId = 1;
+     cameraId = 0;
      //First order cumulative
      prbn = 0.0;
      //Second order cumulative
@@ -56,16 +58,23 @@ void captureFrame(cv::Mat& frame)
     //if( cv::waitKey(10)>10 ) break;
 }
 
-void calcHistogram(cv::Mat& frame,  cv::Mat& histNorm)
+void convertImage(cv::Mat& frame, cv::Mat& hue_ch)
+{
+    cv::cvtColor(frame, frame, CV_BGR2HSV);
+    hue_ch.create(frame.size(), frame.depth());    
+}
+
+void calcHistogram(cv::Mat& frame, cv::Mat& hue_ch, cv::Mat& histNorm)
 {
     //array to store histogram
     cv::Mat hist;
-    int channels[] = {0};
-    int  histSize[] = {32};
-    float range[] = {0, 256};
+    int channels[] = {0, 0};
+    int  histSize[] = {128};
+    float range[] = {0, 180};
     const float* histRange[] = {range};    
-	cv::calcHist(&frame, 1, channels, cv::Mat(), hist, 1, histSize, histRange, true, false);
-    histNorm = hist / (frame.rows * frame.cols);
+	cv::mixChannels( &frame, 1, &hue_ch, 1, channels, 1);
+	cv::calcHist(&hue_ch, 1, 0, cv::Mat(), hist, 1, histSize, histRange, true, false);
+    histNorm = hist / (hue_ch.rows * hue_ch.cols);
 }
 
 void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
