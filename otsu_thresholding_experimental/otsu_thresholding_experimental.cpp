@@ -13,10 +13,13 @@ int main( int argc, char** argv )
     while(key != 'q')
     {
         captureFrame(frame);
+        const clock_t beginTime = clock();
         if(frame.channels() == 3)
             cv::cvtColor(frame, frame, CV_BGR2GRAY);
         calcHistogram(frame, hist);
         calcThresholded(frame, otsuFrame, hist);
+        double execTime = ( clock() - beginTime ) /  static_cast<double>(CLOCKS_PER_SEC );
+        printf("Time to execute: %f", execTime);
         showImages(frame, otsuFrame);
         key = cv::waitKey(1);
     }
@@ -24,17 +27,7 @@ int main( int argc, char** argv )
 
 void initParams()
 {
-     cameraId = 1;
-     //First order cumulative
-     prbn = 0.0;
-     //Second order cumulative
-     meanitr = 0.0;
-     //Global mean level
-     meanglb = 0.0;
-     //Optimum threshold value
-     optThresVal = 0;
-     //One of the parameters required to work out Otsu's Thresholding algorithm
-     param3 = 0.0;
+     cameraId = 0;
 }
 
 void captureFrame(cv::Mat& frame)
@@ -46,14 +39,6 @@ void captureFrame(cv::Mat& frame)
     camera.grab();
     camera.retrieve(destFrame);
     frame = destFrame;
-    //cv::cvtColor( _dest_img, _hsv_dest_img, CV_BGR2HSV);
-    //_hue_dest_ch.create( _hsv_dest_img.size(), _hsv_dest_img.depth() );
-    //cv::mixChannels( &_hsv_dest_img, 1, &_hue_dest_ch, 1, ch, 1);
-    //cv::calcBackProject( &_hue_dest_ch, 1, 0, _hist, _backproj, &_ranges, 1, true );
-    ///// Draw the backproj
-    //cv::imshow( "BackProj", _backproj );
-    //detectEdges( _backproj );
-    //if( cv::waitKey(10)>10 ) break;
 }
 
 void calcHistogram(cv::Mat& frame,  cv::Mat& histNorm)
@@ -64,31 +49,14 @@ void calcHistogram(cv::Mat& frame,  cv::Mat& histNorm)
     int  histSize[] = {32};
     float range[] = {0, 256};
     const float* histRange[] = {range};    
-	cv::calcHist(&frame, 1, channels, cv::Mat(), hist, 1, histSize, histRange, true, false);
-    histNorm = hist / (frame.rows * frame.cols);
+    cv::calcHist(&frame, 1, channels, cv::Mat(), hist, 1, histSize, histRange, true, false);
+    cv::normalize(hist, histNorm, 0, 255, NORM_MINMAX, -1, cv::Mat());
 }
 
 void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
 {
-   for(int i = 0; i < 256; i++)
-       meanglb += static_cast<float>(i * hist.at<float>(i));
-   //First order cumulative
-   for(int i = 0; i <= 255; i++)
-   {
-       prbn += static_cast<float>(hist.at<float>(i));
-       meanitr += static_cast<float>(i * hist.at<float>(i));
-       param1 = static_cast<float>((meanglb * prbn) - meanitr);
-       param2 = static_cast<float>(param1 * param1) / static_cast<float>(prbn * (1.0f - prbn));
-       if(param2 > param3)
-       {
-           param3 = param2;
-           optThresVal = i;
-       }
-   }
    //Threshold
-   cv::threshold(frame, otsuFrame, optThresVal, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-
-   
+   cv::threshold(frame, otsuFrame, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 }
 
 void showImages(cv::Mat& frame, cv::Mat& otsuFrame)
