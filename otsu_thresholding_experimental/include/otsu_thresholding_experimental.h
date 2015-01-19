@@ -25,4 +25,6 @@ void calcHistogram(cv::Mat& frame, cv::Mat& histNorm);
 
 void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist);
 
-void showImages(cv::Mat& frame, cv::Mat& otsuFrame);
+void detectEdges(cv::Mat& frame, cv::Mat& edgedFrame);
+
+void showImages(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& edgedFrame);
