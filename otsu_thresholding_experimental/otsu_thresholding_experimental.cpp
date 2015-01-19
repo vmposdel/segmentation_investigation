@@ -1,4 +1,5 @@
 #include "include/otsu_thresholding_experimental.h"
+#include <sys/time.h>
 
 using namespace std;
 using namespace cv;
@@ -8,18 +9,24 @@ int main( int argc, char** argv )
     cv::Mat frame;
     cv::Mat otsuFrame; 
     cv::Mat hist;
+    struct timeval startwtime, endwtime;
+    double execTime;  
     int key = 1;
     initParams();
     while(key != 'q')
     {
         captureFrame(frame);
-        const clock_t beginTime = clock();
+        gettimeofday (&startwtime, NULL);
+        //const clock_t beginTime = clock();
         if(frame.channels() == 3)
             cv::cvtColor(frame, frame, CV_BGR2GRAY);
         calcHistogram(frame, hist);
         calcThresholded(frame, otsuFrame, hist);
-        double execTime = ( clock() - beginTime ) /  static_cast<double>(CLOCKS_PER_SEC );
-        printf("Time to execute: %f", execTime);
+        gettimeofday (&endwtime, NULL);
+        execTime = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6
+                      + endwtime.tv_sec - startwtime.tv_sec);
+        //execTime = (clock() - beginTime) /  static_cast<double>(CLOCKS_PER_SEC );
+        printf("Time to execute: %f\n", execTime); 
         showImages(frame, otsuFrame);
         key = cv::waitKey(1);
     }
@@ -27,7 +34,7 @@ int main( int argc, char** argv )
 
 void initParams()
 {
-     cameraId = 0;
+     cameraId = 1;
 }
 
 void captureFrame(cv::Mat& frame)
