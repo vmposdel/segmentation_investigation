@@ -3,6 +3,7 @@
 #include "opencv2/features2d/features2d.hpp"
 #include <stdio.h>
 #include <iostream>
+#include <string.h>
  
 
 int cameraId;
@@ -19,7 +20,7 @@ float param1, param2, param3;
 
 void initParams();
 
-void captureFrame(cv::Mat& frame);
+static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string>& imageNames);
 
 void calcHistogram(cv::Mat& frame, cv::Mat& histNorm);
 

@@ -1,4 +1,5 @@
 #include "include/otsu_thresholding_experimental.h"
+#include "include/tinydir.h"
 
 using namespace std;
 using namespace cv;
@@ -6,24 +7,33 @@ using namespace cv;
 int main( int argc, char** argv )
 {
     cv::Mat frame;
+    std::vector<cv::Mat> inImages(202);
+    std::stringstream imgName;
+    std::vector<std::string> imageNames;
+    imageNames.clear();
+   // char *imageNames[202];
     cv::Mat otsuFrame; 
     cv::Mat edgedFrame; 
     cv::Mat hist;
-    int key = 1;
     initParams();
-    captureFrame(frame);
-    clock_t beginTime = clock();
-    if(frame.channels() == 3)
+    captureFrame(inImages, imageNames);
+    for( int i = 0; i < imageNames.size(); i++ )
+    {
+      inImages[i].copyTo(frame);
+      if(frame.channels() == 3)
         cv::cvtColor(frame, frame, CV_BGR2GRAY);
-    float sigma = 1;
-    cv::GaussianBlur(frame, frame, cv::Size(5,5), sigma, 0, BORDER_DEFAULT);
-    calcHistogram(frame, hist);
-    calcThresholded(frame, otsuFrame, hist);
-    double execTime = static_cast<double>(clock() - beginTime) /  static_cast<double>(CLOCKS_PER_SEC );
-    detectEdges(otsuFrame, edgedFrame);
-    printf("Time to execute: %f", execTime);
-    showImages(frame, otsuFrame, edgedFrame);
-    key = cv::waitKey(1);
+      float sigma = 1;
+      cv::GaussianBlur(frame, frame, cv::Size(5,5), sigma, 0, BORDER_DEFAULT);
+      calcHistogram(frame, hist);
+      calcThresholded(frame, otsuFrame, hist);
+      detectEdges(otsuFrame, edgedFrame);
+      //printf("Time to execute: %f", execTime);
+      //showImages(frame, otsuFrame, edgedFrame);
+      //printf("%s\n", imageNames.at(i));
+      imgName << "../BSDTrainEdged/" << imageNames.at(i);
+      cv::imwrite( imgName.str(), edgedFrame );
+      imgName.str("");
+    }
 }
 
 void initParams()
@@ -31,9 +41,26 @@ void initParams()
      cameraId = 0;
 }
 
-void captureFrame(cv::Mat& frame)
+static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string>& imageNames)
 {
-    frame = cv::imread("/home/v/Documents/PANDORA/Vision/Image Segmentation/BSDS300/images/train/189011.jpg");
+    tinydir_dir dir;
+    tinydir_open(&dir, "/home/v/Documents/PANDORA/Vision/Image_Segmentation/BSDS500/BSDS500/data/images/train/");
+    std::stringstream imgName;
+    int i = 0;
+    while (dir.has_next)
+    {
+      tinydir_file file;
+      tinydir_readfile(&dir, &file);
+      if(strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
+      {
+        imageNames.push_back(file.name);
+        imgName << "/home/v/Documents/PANDORA/Vision/Image_Segmentation/BSDS500/BSDS500/data/images/train/" << file.name;
+        inImages[i] = cv::imread(imgName.str());
+        imgName.str("");
+      }
+      tinydir_next(&dir);
+      i++;
+    }
 }
 
 void calcHistogram(cv::Mat& frame,  cv::Mat& histNorm)
