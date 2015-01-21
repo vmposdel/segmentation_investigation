@@ -33,6 +33,9 @@ int main( int argc, char** argv )
       imgName << "../BSDTrainEdged/" << imageNames.at(i);
       cv::imwrite( imgName.str(), edgedFrame );
       imgName.str("");
+      imgName << "../BSDTrainThresholded/" << imageNames.at(i);
+      cv::imwrite( imgName.str(), otsuFrame );
+      imgName.str("");
     }
 }
 
