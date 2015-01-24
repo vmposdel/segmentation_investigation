@@ -1,11 +1,14 @@
 #include "include/otsu_thresholding_experimental.h"
 #include "include/tinydir.h"
+#include <sys/time.h>
 
 using namespace std;
 using namespace cv;
 
 int main( int argc, char** argv )
 {
+  struct timeval startwtime, endwtime;
+  double seq_time;
   cv::Mat frame;
   std::vector<cv::Mat> inImages(202);
   std::stringstream imgName;
@@ -19,23 +22,30 @@ int main( int argc, char** argv )
   captureFrame(inImages, imageNames);
   for( int i = 0; i < imageNames.size(); i++ )
   {
+    gettimeofday (&startwtime, NULL);
+
     inImages[i].copyTo(frame);
     if(frame.channels() == 3)
       cv::cvtColor(frame, frame, CV_BGR2GRAY);
     float sigma = 1;
-//    cv::GaussianBlur(frame, frame, cv::Size(5,5), sigma, 0, BORDER_DEFAULT);
+    //    cv::GaussianBlur(frame, frame, cv::Size(5,5), sigma, 0, BORDER_DEFAULT);
     calcHistogram(frame, hist);
     calcThresholded(frame, otsuFrame, hist);
-//    detectEdges(otsuFrame, edgedFrame);
+    gettimeofday (&endwtime, NULL);
+    seq_time = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6
+        + endwtime.tv_sec - startwtime.tv_sec);
+
+    printf("Time to execute = %f\n", seq_time);
+    //    detectEdges(otsuFrame, edgedFrame);
     ////printf("Time to execute: %f", execTime);
     //showImages(frame, otsuFrame, edgedFrame);
     ////printf("%s\n", imageNames.at(i));
-//    imgName << "../BSDTrainEdged/" << imageNames.at(i);
+    //    imgName << "../BSDTrainEdged/" << imageNames.at(i);
     //cv::imwrite( imgName.str(), edgedFrame );
-//    imgName.str("");
-//    imgName << "../BSDTrainThresholded/" << imageNames.at(i);
+    //    imgName.str("");
+    //    imgName << "../BSDTrainThresholded/" << imageNames.at(i);
     //cv::imwrite( imgName.str(), otsuFrame );
-//    imgName.str("");
+    //    imgName.str("");
   }
 }
 
@@ -167,7 +177,7 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
         int value = (int)value1;
         if(value <= hist.at<float>(secondMeanI))
         {
-               // //printf("hist: %f val: %d\n", hist.at<float>(secondMeanI) , value);
+          // //printf("hist: %f val: %d\n", hist.at<float>(secondMeanI) , value);
           imageT1.at<uchar>(y, x) = value;
           //imgT1I++;
         }
@@ -177,14 +187,14 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
           imageT2.at<uchar>(y, x) = value;
           //imgT2I++;
         }
-    //    else
-    //    {
-    //      //    //printf("hist: %f val: %d\n", hist.at<float>(firstMeanI) , value);
-    //      imageT1.at<uchar>(x, y) = value1;
-    //      imgT1I++;
-    //      imageT2.at<uchar>(x, y) = value1;
-    //      imgT2I++;
-    //    }
+        //    else
+        //    {
+        //      //    //printf("hist: %f val: %d\n", hist.at<float>(firstMeanI) , value);
+        //      imageT1.at<uchar>(x, y) = value1;
+        //      imgT1I++;
+        //      imageT2.at<uchar>(x, y) = value1;
+        //      imgT2I++;
+        //    }
       }
     }
     //cv::namedWindow("image1", CV_WINDOW_AUTOSIZE);
@@ -197,9 +207,9 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
     double secondThreshold = 0;
     //double secondThreshold = cv::threshold(frame, imageT2, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
     //printf("First threshold: %f, second threshold: %f\n", firstThreshold, secondThreshold);
-    cv::imshow("image1", imageT1);
-    cv::imshow("image2", imageT2);
-    cv::waitKey(10000);
+    //    cv::imshow("image1", imageT1);
+    //    cv::imshow("image2", imageT2);
+    //    cv::waitKey(10000);
   }
   else
   {
