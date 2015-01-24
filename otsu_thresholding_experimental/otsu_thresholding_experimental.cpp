@@ -27,9 +27,9 @@ int main( int argc, char** argv )
     calcHistogram(frame, hist);
     calcThresholded(frame, otsuFrame, hist);
 //    detectEdges(otsuFrame, edgedFrame);
-    //printf("Time to execute: %f", execTime);
+    ////printf("Time to execute: %f", execTime);
     //showImages(frame, otsuFrame, edgedFrame);
-    //printf("%s\n", imageNames.at(i));
+    ////printf("%s\n", imageNames.at(i));
 //    imgName << "../BSDTrainEdged/" << imageNames.at(i);
     //cv::imwrite( imgName.str(), edgedFrame );
 //    imgName.str("");
@@ -56,7 +56,7 @@ static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string
     tinydir_readfile(&dir, &file);
     if(strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
     {
-      printf("%s\n", file.name);
+      //printf("%s\n", file.name);
       imageNames.push_back(file.name);
       imgName << "/home/v/Documents/PANDORA/Vision/Image_Segmentation/BSDS500/BSDS500/data/images/train/" << file.name;
       inImages[i] = cv::imread(imgName.str());
@@ -137,17 +137,19 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
       middleI = i;
     }
   }
-  printf("MinI: %d, MiddleI: %d, MaxI: %d\n", minI, middleI, maxI);
+  //printf("MinI: %d, MiddleI: %d, MaxI: %d\n", minI, middleI, maxI);
   //firstMeanI = 19;
   //secondMeanI = 26;
   firstMeanI = peaks[minI] + floor((peaks[middleI] - peaks[minI])/2);
   secondMeanI = peaks[middleI] + floor((peaks[maxI] - peaks[middleI])/2);
-  printf("First peak: %d, second peak: %d\n", firstMeanI, secondMeanI);
+  //printf("First peak: %d, second peak: %d\n", firstMeanI, secondMeanI);
   int peaksNo = 2;
   if(abs(firstMeanI - secondMeanI) <= 30)
     peaksNo = 1;
   cv::Mat imageT1 = cv::Mat::zeros(frame.rows, frame.cols, CV_8UC1);
+  imageT1.setTo(peaks[middleI] * 256 / 512);
   cv::Mat imageT2 = cv::Mat::zeros(frame.rows, frame.cols, CV_8UC1);
+  imageT2.setTo(peaks[maxI] * 256 / 512);
   ////cv::Mat imageT3;
   //int imgT1I = 0;
   //int rowT1I = 0;
@@ -156,44 +158,45 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
   //int imgT3I = 0;
   if(peaksNo == 2)
   {
-    //for(int y = 0; y < frame.rows; y++)
-    //{
-    //  for(int x = 0; x < frame.cols; x++)
-    //  {
-    //    // get pixel
-    //    uchar value1 = frame.at<uchar>(x,y);
-    //    int value = (int)value1;
-    //    if(value <= hist.at<float>(firstMeanI))
-    //    {
-    //      //      printf("hist: %f val: %d\n", hist.at<float>(firstMeanI) , value);
-    //      imageT1.at<uchar>(x, y) = value1;
-    //      imgT1I++;
-    //    }
-    //    else if(value >= hist.at<float>(secondMeanI))
-    //    {
-    //      //     printf("hist: %f val: %d\n", hist.at<float>(firstMeanI) , value);
-    //      imageT2.at<uchar>(x, y) = value1;
-    //      imgT2I++;
-    //    }
+    for(int y = 0; y < frame.rows; y++)
+    {
+      for(int x = 0; x < frame.cols; x++)
+      {
+        // get pixel
+        uchar value1 = frame.at<uchar>(y,x);
+        int value = (int)value1;
+        if(value <= hist.at<float>(secondMeanI))
+        {
+               // //printf("hist: %f val: %d\n", hist.at<float>(secondMeanI) , value);
+          imageT1.at<uchar>(y, x) = value;
+          //imgT1I++;
+        }
+        else // if(value >= hist.at<float>(secondMeanI))
+        {
+          //     //printf("hist: %f val: %d\n", hist.at<float>(firstMeanI) , value);
+          imageT2.at<uchar>(y, x) = value;
+          //imgT2I++;
+        }
     //    else
     //    {
-    //      //    printf("hist: %f val: %d\n", hist.at<float>(firstMeanI) , value);
+    //      //    //printf("hist: %f val: %d\n", hist.at<float>(firstMeanI) , value);
     //      imageT1.at<uchar>(x, y) = value1;
     //      imgT1I++;
     //      imageT2.at<uchar>(x, y) = value1;
     //      imgT2I++;
     //    }
-    //  }
-    //}
+      }
+    }
     //cv::namedWindow("image1", CV_WINDOW_AUTOSIZE);
     //cv::imshow("image1", imageT1);
     //cv::namedWindow("image2", CV_WINDOW_AUTOSIZE);
     //cv::imshow("image2", imageT2);
     //cv::waitKey(20000);
-    double firstThreshold = cv::threshold(frame, imageT1, 0, firstMeanI, CV_THRESH_BINARY | CV_THRESH_OTSU);
+    //double firstThreshold = cv::threshold(imageT1, imageT1, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+    double firstThreshold = 0;
     double secondThreshold = 0;
     //double secondThreshold = cv::threshold(frame, imageT2, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-    printf("First threshold: %f, second threshold: %f\n", firstThreshold, secondThreshold);
+    //printf("First threshold: %f, second threshold: %f\n", firstThreshold, secondThreshold);
     cv::imshow("image1", imageT1);
     cv::imshow("image2", imageT2);
     cv::waitKey(10000);
@@ -201,7 +204,7 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
   else
   {
     double firstThreshold = cv::threshold(frame, otsuFrame, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-    printf("First threshold: %f\n", firstThreshold);
+    //printf("First threshold: %f\n", firstThreshold);
   }
 }
 

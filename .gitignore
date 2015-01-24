@@ -44,3 +44,6 @@ CMakeFiles
 *.pyc
 .ropeproject/
 
+# Images
+*.jpg
+
