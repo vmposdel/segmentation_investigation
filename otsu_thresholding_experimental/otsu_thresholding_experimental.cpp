@@ -82,7 +82,7 @@ void calcHistogram(cv::Mat& frame,  cv::Mat& histNorm)
   //array to store histogram
   cv::Mat hist;
   int channels[] = {0};
-  int  histSize[] = {512};
+  int  histSize[] = {1024};
   float range[] = {0, 256};
   const float* histRange[] = {range};    
   cv::calcHist(&frame, 1, channels, cv::Mat(), hist, 1, histSize, histRange, true, false);
@@ -154,12 +154,12 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
   secondMeanI = peaks[middleI] + floor((peaks[maxI] - peaks[middleI])/2);
   //printf("First peak: %d, second peak: %d\n", firstMeanI, secondMeanI);
   int peaksNo = 2;
-  if(abs(firstMeanI - secondMeanI) <= 30)
+  if(abs(firstMeanI - secondMeanI) <= 200)
     peaksNo = 1;
   cv::Mat imageT1 = cv::Mat::zeros(frame.rows, frame.cols, CV_8UC1);
-  imageT1.setTo(peaks[middleI] * 256 / 512);
+  imageT1.setTo(peaks[middleI] * 256 / 1024);
   cv::Mat imageT2 = cv::Mat::zeros(frame.rows, frame.cols, CV_8UC1);
-  imageT2.setTo(peaks[maxI] * 256 / 512);
+  imageT2.setTo(peaks[maxI] * 256 / 1024);
   ////cv::Mat imageT3;
   //int imgT1I = 0;
   //int rowT1I = 0;
@@ -202,14 +202,14 @@ void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist)
     //cv::namedWindow("image2", CV_WINDOW_AUTOSIZE);
     //cv::imshow("image2", imageT2);
     //cv::waitKey(20000);
-    //double firstThreshold = cv::threshold(imageT1, imageT1, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-    double firstThreshold = 0;
-    double secondThreshold = 0;
-    //double secondThreshold = cv::threshold(frame, imageT2, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+    //double firstThreshold = 0;
+    //double secondThreshold = 0;
+    double firstThreshold = cv::threshold(imageT1, imageT1, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+    double secondThreshold = cv::threshold(frame, imageT2, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
     //printf("First threshold: %f, second threshold: %f\n", firstThreshold, secondThreshold);
-    //    cv::imshow("image1", imageT1);
-    //    cv::imshow("image2", imageT2);
-    //    cv::waitKey(10000);
+        cv::imshow("image1", imageT1);
+        cv::imshow("image2", imageT2);
+        cv::waitKey(10000);
   }
   else
   {
