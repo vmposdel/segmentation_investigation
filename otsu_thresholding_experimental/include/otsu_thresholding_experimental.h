@@ -22,9 +22,9 @@ void initParams();
 
 static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string>& imageNames);
 
-void calcHistogram(cv::Mat& frame, cv::Mat& histNorm);
+void calcHistogram(cv::Mat& frame, cv::Mat& histNorm, cv::Mat& hue_ch, cv::Mat& sat_ch);
 
-void calcThresholded(cv::Mat& frame, cv::Mat& otsuFrame, cv::Mat& hist);
+void calcThresholded(cv::Mat& frame, cv::Mat& hue_ch, cv::Mat& sat_ch, cv::Mat& otsuFrame, cv::Mat& hist);
 
 void detectEdges(cv::Mat& frame, cv::Mat& edgedFrame);
 
