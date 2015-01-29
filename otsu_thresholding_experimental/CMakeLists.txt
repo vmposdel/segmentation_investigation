@@ -1,6 +1,0 @@
-cmake_minimum_required(VERSION 2.8)
-project(otsu_thresholding_experimental)
-find_package( OpenCV REQUIRED )
-include_directories(${OpenCV_INCLUDE_DIRS})
-add_executable(otsu_thresholding_experimental otsu_thresholding_experimental.cpp )
-target_link_libraries(otsu_thresholding_experimental ${OpenCV_LIBS} )
