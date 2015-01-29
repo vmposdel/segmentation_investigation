@@ -7,7 +7,7 @@ using namespace cv;
 int main( int argc, char** argv )
 {
   cv::Mat frame;
-  std::vector<cv::Mat> inImages(202);
+  std::vector<cv::Mat> inImages(203);
   std::stringstream imgName;
   std::vector<std::string> imageNames;
   imageNames.clear();
@@ -15,14 +15,14 @@ int main( int argc, char** argv )
   cv::Mat edgedFrame; 
   //cv::Mat hist;
   initParams();
-  //  generatePoints();
+  //  generatesamples();
   captureFrame(inImages, imageNames);
   for( int i = 0; i < imageNames.size(); i++ )
   {
     inImages[i].copyTo(frame);
-    if(frame.channels() == 3)
-      cv::cvtColor(frame, frame, CV_BGR2GRAY);
-    cv::Mat kmeansFrame(frame.cols, frame.rows, CV_8UC3); 
+    //if(frame.channels() == 3)
+    //  cv::cvtColor(frame, frame, CV_BGR2GRAY);
+    cv::Mat kmeansFrame(frame.rows, frame.cols, CV_32F); 
     //float sigma = 1;
     //cv::GaussianBlur(frame, frame, cv::Size(5,5), sigma, 0, BORDER_DEFAULT);
     //calcHistogram(frame, hist);
@@ -45,12 +45,13 @@ void initParams()
 {
   cameraId = 0;
   maxClusters = 3;
-  color[0] = cv::Vec3b(0, 0, 255);
-  color[1] = cv::Vec3b(0, 255, 0);
-  color[1] = cv::Vec3b(255, 0, 0);
-  //colorTab[1] =  cv::Scalar(0, 0, 255);
-  //colorTab[2] =  cv::Scalar(0, 255, 0);
+  colors = new int [maxClusters]; 
+  for(int i = 0; i < maxClusters; i ++)
+  {
+    colors[i] = 255/(i+1);
+  }
 }
+
 
 static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string>& imageNames)
 {
@@ -90,25 +91,42 @@ void calcClustered(cv::Mat& frame, cv::Mat& kmeansFrame)
 {
   //Cluster
   int size = frame.rows * frame.cols;
-  cv::Mat points(size, 1, CV_32FC1), labels;
-  cv::Mat centers(maxClusters, 1, points.type());
-  for(int y = 0; y < frame.rows; y ++) {
-    for(int x = 0; x < frame.cols; x ++){
-      points.at<int>(y * frame.cols + x) = (int)frame.at<uchar>(y, x);
-    }
+  cv::Mat samples(size, 5, CV_32F);
+  cv::Mat labels;
+  cv::Mat centers(maxClusters, 1, samples.type());
+  std::vector<cv::Mat> components;    
+  cv::split(frame, components);
+
+  for(int y = 0; y < frame.rows * frame.cols; y ++) 
+  {
+    samples.at<float>(y,0) = (y / frame.cols) / frame.rows;
+    samples.at<float>(y,1) = (y % frame.cols) / frame.cols;
+    samples.at<float>(y,2) = components[0].data[y] / 255.0;
+    samples.at<float>(y,3) = components[1].data[y] / 255.0;
+    samples.at<float>(y,4) = components[2].data[y] / 255.0;
   }
-  cv::kmeans(points, maxClusters, labels, 
-      cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 100, 1.0),
-      10, KMEANS_PP_CENTERS, centers);
-  printf("centers:%d, %d\n", centers.at<int>(0), centers.at<int>(1));
-  for(int y = 0; y < frame.rows; y ++){
-    for(int x = 0; x < frame.cols; x ++){
-      //kmeansFrame.at<Vec3b>(Point(y, x)).setTo(colorTab[labels.at<uchar>(y * frame.cols + x)]);
-      //printf("label:%d\n", labels.at<int>(y * frame.cols + x));
-      //printf("sample:%d\n", points.at<int>(y * frame.cols + x));
-      kmeansFrame.at<Vec3b>(Point(y, x)) = color[labels.at<int>(y * frame.cols + x)];
-    }
+
+  //for(int y = 0; y < frame.rows; y ++) {
+  //  for(int x = 0; x < frame.cols; x ++){
+  //    samples.at<int>(y * frame.cols + x) = (int)frame.at<uchar>(y, x);
+  //  }
+  //}
+  cv::kmeans(samples, maxClusters, labels, 
+      cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 10, 1.0),
+      3, KMEANS_PP_CENTERS, centers);
+  for(int y = 0; y < frame.rows * frame.cols; y ++) 
+  {
+    kmeansFrame.at<float>(y / frame.cols, y % frame.cols) = (float)(colors[labels.at<int>(0, y)]);
   }
+  kmeansFrame.convertTo(kmeansFrame, CV_8U);
+  //for(int y = 0; y < frame.rows; y ++){
+  //  for(int x = 0; x < frame.cols; x ++){
+  //    //kmeansFrame.at<Vec3b>(Point(y, x)).setTo(colorTab[labels.at<uchar>(y * frame.cols + x)]);
+  //    //printf("label:%d\n", labels.at<int>(y * frame.cols + x));
+  //    //printf("sample:%d\n", samples.at<int>(y * frame.cols + x));
+  //    kmeansFrame.at<Vec3b>(Point(y, x)) = color[labels.at<int>(y * frame.cols + x)];
+  //  }
+  //}
 }
 
 void detectEdges(cv::Mat& frame, cv::Mat& edgedFrame)

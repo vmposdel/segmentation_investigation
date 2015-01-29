@@ -10,6 +10,7 @@
 int cameraId;
 int maxClusters;
 //cv::Scalar colorTab[2]; 
+int* colors;
 cv::Vec3b color[3];
 
 void initParams();
