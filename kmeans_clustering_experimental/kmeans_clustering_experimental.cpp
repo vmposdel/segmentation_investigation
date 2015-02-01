@@ -7,56 +7,86 @@ using namespace cv;
 int main( int argc, char** argv )
 {
   cv::Mat frame;
-  std::vector<cv::Mat> inImages(203);
+  std::vector<cv::Mat> inImages(202);
   std::stringstream imgName;
   std::vector<std::string> imageNames;
   imageNames.clear();
   // char *imageNames[202];
   cv::Mat edgedFrame; 
   //cv::Mat hist;
+  struct timeval startwtime, endwtime;
+  double execTime;
   initParams();
   //  generatesamples();
+  gettimeofday (&startwtime, NULL);
   captureFrame(inImages, imageNames);
   for( int i = 0; i < imageNames.size(); i++ )
   {
     inImages[i].copyTo(frame);
+    if(!frame.data)
+      continue;
     //if(frame.channels() == 3)
     //  cv::cvtColor(frame, frame, CV_BGR2GRAY);
-    cv::Mat kmeansFrame(frame.rows, frame.cols, CV_32F); 
+    cv::Mat kmeansFrame(frame.rows, frame.cols, CV_8UC3); 
     //float sigma = 1;
     //cv::GaussianBlur(frame, frame, cv::Size(5,5), sigma, 0, BORDER_DEFAULT);
     //calcHistogram(frame, hist);
     calcClustered(frame, kmeansFrame);
     detectEdges(kmeansFrame, edgedFrame);
     //printf("Time to execute: %f", execTime);
-    showImages(frame, kmeansFrame, edgedFrame);
-    cv::waitKey(10000);
-    //printf("%s\n", imageNames.at(i));
-    //imgName << "../BSDTrainEdgedKmeans/" << imageNames.at(i);
+    //showImages(frame, kmeansFrame, edgedFrame);
+    //cv::waitKey(10000);
+    //imgName << "../../../dataset_kmeansC" << maxClusters << "/" << imageNames.at(i);
     //cv::imwrite( imgName.str(), edgedFrame );
-    //imgName.str("");
     //imgName << "../BSDTrainClustered/" << imageNames.at(i);
     //cv::imwrite( imgName.str(), kmeansFrame );
-    imgName.str("");
+    //imgName.str("");
   }
+  gettimeofday (&endwtime, NULL);
+  execTime = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6
+               + endwtime.tv_sec - startwtime.tv_sec);
+  printf("Time to execute: %f\n", execTime);
 }
 
 void initParams()
 {
   cameraId = 0;
-  maxClusters = 3;
-  colors = new int [maxClusters]; 
+  maxClusters = 5;
+  //colors = new int [maxClusters]; 
+  colors = new cv::Vec3b [maxClusters]; 
   for(int i = 0; i < maxClusters; i ++)
   {
-    colors[i] = 255/(i+1);
+    if((i + 1) % 2 == 0)
+    {
+      colors[i][0] = 0;
+      colors[i][1] = 255 / ((i + 1) / 2);
+      colors[i][2] = 0;
+    }
+    else if((i + 1) % 3 == 0)
+    {
+      colors[i][0] = 0;
+      colors[i][1] = 0;
+      colors[i][2] = 255 / ((i + 1) / 3);
+    }
+    else
+    {
+      colors[i][0] = 255 / (i + 1);
+      colors[i][1] = 0;
+      colors[i][2] = 0;
+    }
+    //colors[i] = (255 / (i + 1), 255/ (i + 2), 255/ (i + 3));
   }
+  //for(int i = 0; i < maxClusters; i ++)
+  //{
+  //  colors[i] = 255/(i+1);
+  //}
 }
 
 
 static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string>& imageNames)
 {
   tinydir_dir dir;
-  tinydir_open(&dir, "/home/v/Documents/PANDORA/Vision/Image_Segmentation/BSDS500/BSDS500/data/images/train/");
+  tinydir_open(&dir, "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images");
   std::stringstream imgName;
   int i = 0;
   while (dir.has_next)
@@ -66,7 +96,7 @@ static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string
     if(strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
     {
       imageNames.push_back(file.name);
-      imgName << "/home/v/Documents/PANDORA/Vision/Image_Segmentation/BSDS500/BSDS500/data/images/train/" << file.name;
+      imgName << "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images/" << file.name;
       inImages[i] = cv::imread(imgName.str());
       imgName.str("");
     }
@@ -116,17 +146,15 @@ void calcClustered(cv::Mat& frame, cv::Mat& kmeansFrame)
       3, KMEANS_PP_CENTERS, centers);
   for(int y = 0; y < frame.rows * frame.cols; y ++) 
   {
-    kmeansFrame.at<float>(y / frame.cols, y % frame.cols) = (float)(colors[labels.at<int>(0, y)]);
+    //printf("point %d", labels.at<int>(y / frame.cols, y % frame.cols));
+    kmeansFrame.at<Vec3b>(Point(y % frame.cols, y / frame.cols)) = colors[labels.at<int>(0, y)];
   }
-  kmeansFrame.convertTo(kmeansFrame, CV_8U);
-  //for(int y = 0; y < frame.rows; y ++){
-  //  for(int x = 0; x < frame.cols; x ++){
-  //    //kmeansFrame.at<Vec3b>(Point(y, x)).setTo(colorTab[labels.at<uchar>(y * frame.cols + x)]);
-  //    //printf("label:%d\n", labels.at<int>(y * frame.cols + x));
-  //    //printf("sample:%d\n", samples.at<int>(y * frame.cols + x));
-  //    kmeansFrame.at<Vec3b>(Point(y, x)) = color[labels.at<int>(y * frame.cols + x)];
-  //  }
+  //for(int y = 0; y < frame.rows * frame.cols; y ++) 
+  //{
+  //  kmeansFrame.at<float>(y / frame.cols, y % frame.cols) = (float)(colors[labels.at<int>(0, y)]);
   //}
+  //kmeansFrame.convertTo(kmeansFrame, CV_8UC3);
+
 }
 
 void detectEdges(cv::Mat& frame, cv::Mat& edgedFrame)

@@ -5,13 +5,14 @@
 #include <stdio.h>
 #include <iostream>
 #include <string.h>
+#include <sys/time.h>
  
 
 int cameraId;
 int maxClusters;
 //cv::Scalar colorTab[2]; 
-int* colors;
-cv::Vec3b color[3];
+//int* colors;
+cv::Vec3b* colors;
 
 void initParams();
 
