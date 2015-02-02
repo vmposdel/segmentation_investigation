@@ -34,9 +34,9 @@ int main( int argc, char** argv )
     //printf("Time to execute: %f", execTime);
     //showImages(frame, otsuFrame, edgedFrame);
     //printf("%s\n", imageNames.at(i));
-    //imgName << "../../../dataset_otsu/" << imageNames.at(i);
-    //cv::imwrite( imgName.str(), otsuFrame );
-    //imgName.str("");
+    imgName << "../../../dataset_otsu/" << imageNames.at(i);
+    cv::imwrite( imgName.str(), otsuFrame );
+    imgName.str("");
     //imgName << "../BSDTrainThresholded/" << imageNames.at(i);
     //cv::imwrite( imgName.str(), otsuFrame );
     //imgName.str("");
@@ -56,6 +56,7 @@ static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string
 {
   tinydir_dir dir;
   tinydir_open(&dir, "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images");
+  cv::Mat tempImg;
   std::stringstream imgName;
   int i = 0;
   while (dir.has_next)
@@ -64,13 +65,16 @@ static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string
     tinydir_readfile(&dir, &file);
     if(strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
     {
-      imageNames.push_back(file.name);
       imgName << "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images/" << file.name;
-      inImages[i] = cv::imread(imgName.str());
+      tempImg = cv::imread(imgName.str());
+      if(!tempImg.data)
+        continue;
+      tempImg.copyTo(inImages[i]);
+      imageNames.push_back(file.name);
       imgName.str("");
+      i++;
     }
     tinydir_next(&dir);
-    i++;
   }
 }
 
