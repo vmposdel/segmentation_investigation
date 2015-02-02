@@ -44,14 +44,14 @@ int main( int argc, char** argv )
   }
   gettimeofday (&endwtime, NULL);
   execTime = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6
-               + endwtime.tv_sec - startwtime.tv_sec);
+      + endwtime.tv_sec - startwtime.tv_sec);
   printf("Time to execute: %f\n", execTime);
 }
 
 void initParams()
 {
   cameraId = 0;
-  maxClusters = 5;
+  maxClusters = 2;
   //colors = new int [maxClusters]; 
   colors = new cv::Vec3b [maxClusters]; 
   for(int i = 0; i < maxClusters; i ++)
@@ -87,6 +87,7 @@ static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string
 {
   tinydir_dir dir;
   tinydir_open(&dir, "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images");
+  cv::Mat tempImg;
   std::stringstream imgName;
   int i = 0;
   while (dir.has_next)
@@ -95,13 +96,16 @@ static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string
     tinydir_readfile(&dir, &file);
     if(strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
     {
-      imageNames.push_back(file.name);
       imgName << "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images/" << file.name;
-      inImages[i] = cv::imread(imgName.str());
+      tempImg = cv::imread(imgName.str());
+      if(!tempImg.data)
+        continue;
+      tempImg.copyTo(inImages[i]);
+      imageNames.push_back(file.name);
       imgName.str("");
+      i++;
     }
     tinydir_next(&dir);
-    i++;
   }
 }
 
