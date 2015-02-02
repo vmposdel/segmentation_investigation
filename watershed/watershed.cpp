@@ -45,11 +45,11 @@ int main(int argc, char* argv[])
   {
     inImages[i].copyTo(image);
 
-    if(!image.data)
-    {
-      cout<<"error while reading image\n";
-      continue;
-    }
+    //if(!image.data)
+    //{
+    //  cout<<"error while reading image\n";
+    //  continue;
+    //}
     cv::Mat binary;
     cv::cvtColor(image, binary, CV_BGR2GRAY);
     cv::threshold(binary, binary, 100, 255, THRESH_BINARY);
@@ -83,8 +83,8 @@ int main(int argc, char* argv[])
     //cv::waitKey(20000);
     //sprintf(name,"waterResult%d.jpeg",i);
     //imwrite(name,result);
-    imgName << "../../../dataset_WatershedMarkers/" << imageNames.at(i);
-    cv::imwrite( imgName.str(), markers );
+    imgName << "../../../dataset_Watershed/" << imageNames.at(i);
+    cv::imwrite( imgName.str(), result );
     imgName.str("");
   }
   gettimeofday (&endwtime, NULL);
@@ -101,6 +101,7 @@ static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string
   tinydir_dir dir;
   tinydir_open(&dir, "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images");
   std::stringstream imgName;
+  cv::Mat tempImg;
   int i = 0;
   while (dir.has_next)
   {
@@ -108,12 +109,16 @@ static void captureFrame(std::vector<cv::Mat>& inImages, std::vector<std::string
     tinydir_readfile(&dir, &file);
     if(strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
     {
-      imageNames.push_back(file.name);
       imgName << "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images/" << file.name;
+      tempImg = cv::imread(imgName.str());
+      if(!tempImg.data) 
+        continue;
+      tempImg.copyTo(inImages[i]);
+      imageNames.push_back(file.name);
       inImages[i] = cv::imread(imgName.str());
       imgName.str("");
+      i++;
     }
     tinydir_next(&dir);
-    i++;
   }
 }
