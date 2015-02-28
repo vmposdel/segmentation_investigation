@@ -16,7 +16,7 @@ int max_thresh = 255;
 RNG rng(12345);
 int gaussiansharpenblur = 1;
 int maxgaussiansharpenblur = 8;
-int debugShow = 0;
+int debugShow = 1;
 
 Mat mat2gray(const Mat& src)
 {
@@ -63,6 +63,7 @@ void thresh_callback(int, void*)
         }
 
         /// Show in a window
+        cv::imwrite("../../negative43_contours.jpg", drawing);
         cout << "Contours: " << contours.size() << "\n";
         namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         imshow( "Contours", drawing );
@@ -94,7 +95,7 @@ int main()
     double seq_time;
     gettimeofday (&startwtime, NULL);
 
-    Mat image = imread("../../negative21.jpg");//cv::IMREAD_ANYDEPTH|cv::IMREAD_ANYCOLOR);
+    Mat image = imread("../../negative43.jpg");//cv::IMREAD_ANYDEPTH|cv::IMREAD_ANYCOLOR);
     if(!image.data)
     {
         cout << "Cannot open image \n";
@@ -108,32 +109,34 @@ int main()
     //image.copyTo(tempMedian);
     //image = subtractBackground(image);
 
-    Mat image32f;
-    image.convertTo(image32f, CV_32F);
+    //Mat image32f;
+    //image.convertTo(image32f, CV_32F);
 
-    Mat mu;
-    blur(image32f, mu, Size(3, 3));
+    //Mat mu;
+    //blur(image32f, mu, Size(3, 3));
 
-    Mat mu2;
-    blur(image32f.mul(image32f), mu2, Size(3, 3));
+    //Mat mu2;
+    //blur(image32f.mul(image32f), mu2, Size(3, 3));
 
-    cv::sqrt(mu2 - mu.mul(mu), sigma);
+    //cv::sqrt(mu2 - mu.mul(mu), sigma);
 
-    sigma = mat2gray(sigma);
+    //sigma = mat2gray(sigma);
     //imshow("coke", mat2gray(image32f));
     //imshow("mu", mat2gray(mu));
     //imshow("median", tempMedian);
-    double minVal, maxVal;
-    minMaxLoc(sigma, &minVal, &maxVal);
-    sigma.convertTo(sigma, CV_8U, 255.0/(maxVal - minVal));
+    //double minVal, maxVal;
+    //minMaxLoc(sigma, &minVal, &maxVal);
+    //sigma.convertTo(sigma, CV_8U, 255.0/(maxVal - minVal));
+    image.copyTo(sigma);
     if(debugShow)
     {
+        cv::imwrite("../../negative43_std.jpg", sigma);
         char* source_window = "Source";
         namedWindow( source_window, CV_WINDOW_AUTOSIZE );
         imshow(source_window, sigma);
         createTrackbar( " Canny thresh:", "Source", &thresh, max_thresh, thresh_callback );
-        thresh_callback( 0, 0);
     }
+    thresh_callback( 0, 0);
 
     //imwrite("../../negative43_std.jpg", sigma);
     waitKey(0);
