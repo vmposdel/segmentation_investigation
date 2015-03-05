@@ -1,8 +1,5 @@
 #include <iostream>
 #include<opencv2/opencv.hpp>
-//#include <opencv2/core/core.hpp>
-//#include <opencv2/highgui/highgui.hpp>
-//#include <opencv2/imgproc/imgproc.hpp>
 #include <sys/time.h>
 
 using namespace std;
@@ -11,12 +8,14 @@ using namespace cv;
 Mat sigma;
 vector<vector<Point> > contours;
 vector<Vec4i> hierarchy;
-int thresh = 100;
-int max_thresh = 255;
+int thresh = 18;
+int max_thresh = 40;
 RNG rng(12345);
-int gaussiansharpenblur = 1;
+int gaussiansharpenblur = 4;
 int maxgaussiansharpenblur = 8;
 int debugShow = 1;
+std::string imgName = "../../negative357";
+std::stringstream imgNames;
 
 Mat mat2gray(const Mat& src)
 {
@@ -28,16 +27,19 @@ Mat mat2gray(const Mat& src)
 /** @function thresh_callback */
 void thresh_callback(int, void*)
 {
-    Mat canny_output;
     cv::Mat tempSigma;
-    cv::GaussianBlur(sigma, tempSigma, cv::Size(0, 0), gaussiansharpenblur);
 
-    /// Detect edges using canny
-    Canny( tempSigma, canny_output, thresh, thresh*2, 3 );
-    cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(40, 40));
-    cv::morphologyEx( canny_output, canny_output, cv::MORPH_CLOSE, structuringElement );
+    //cv::Laplacian(tempSigma, canny_output, CV_8UC1);
+    //cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(40, 40));
+    ////cv::morphologyEx( canny_output, canny_output, cv::MORPH_OPEN, structuringElement );
+    //cv::morphologyEx( canny_output, canny_output, cv::MORPH_CLOSE, structuringElement );
+    //cv::imshow("tempSigma1", canny_output);
+    //cv::waitKey();
     /// Find contours
-    findContours( canny_output, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(thresh, thresh));
+    //cv::erode(sigma, tempSigma, structuringElement);
+    cv::dilate(sigma, tempSigma, structuringElement);
+    findContours( tempSigma, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
     vector<Moments> mu(contours.size() );
     vector<Point2f> mc( contours.size() );
     //Mass center
@@ -49,7 +51,7 @@ void thresh_callback(int, void*)
     if(debugShow)
     {
         /// Draw contours
-        Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
+        Mat drawing = Mat::zeros( sigma.size(), CV_8UC3 );
         for( int i = 0; i< contours.size(); i++ )
         {
             Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
@@ -63,7 +65,10 @@ void thresh_callback(int, void*)
         }
 
         /// Show in a window
-        cv::imwrite("../../negative43_contours.jpg", drawing);
+        imgNames.str("");
+        imgNames << imgName << "_contours.jpg";
+
+        cv::imwrite(imgNames.str(), drawing);
         cout << "Contours: " << contours.size() << "\n";
         namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         imshow( "Contours", drawing );
@@ -73,19 +78,6 @@ void thresh_callback(int, void*)
 cv::Mat& subtractBackground(cv::Mat& image)
 {
     cv::Mat foreground;
-    cv::Mat background;
-    cv::BackgroundSubtractorMOG2 bg;
-    //bg = Algorithm::create(“BackgroundSubtractor.MOG2″);
-    //bg.set(“nmixtures”,3);
-    bg.operator ()(image, foreground);
-    bg.getBackgroundImage(background);
-    //bg.nmixtures = 3;
-    //bg.bShadowDetection = false;
-    cv::erode(foreground, foreground, cv::Mat());
-    cv::dilate(foreground, foreground, cv::Mat());
-    cv::imshow("Foreground", foreground);
-    cv::imshow("Background", background);
-    cv::waitKey();
     return foreground;
 }
 
@@ -95,12 +87,16 @@ int main()
     double seq_time;
     gettimeofday (&startwtime, NULL);
 
-    Mat image = imread("../../negative43.jpg");//cv::IMREAD_ANYDEPTH|cv::IMREAD_ANYCOLOR);
+    imgNames.str("");
+    imgNames << imgName << ".jpg";
+    Mat image = imread(imgNames.str(), CV_LOAD_IMAGE_COLOR);//cv::IMREAD_ANYDEPTH|cv::IMREAD_ANYCOLOR);
     if(!image.data)
     {
         cout << "Cannot open image \n";
         return 0;
     }
+    //blur(image, image, Size(gaussiansharpenblur, gaussiansharpenblur));
+    cv::GaussianBlur(image, image, cv::Size(0, 0), gaussiansharpenblur);
     //// apply median blur
     //cv::Mat tempMedian;
     //int maxKernelLength = 7;
@@ -109,32 +105,57 @@ int main()
     //image.copyTo(tempMedian);
     //image = subtractBackground(image);
 
-    //Mat image32f;
-    //image.convertTo(image32f, CV_32F);
+    Mat image32f;
+    image.convertTo(image32f, CV_32F);
 
-    //Mat mu;
-    //blur(image32f, mu, Size(3, 3));
+    Mat mu;
+    blur(image32f, mu, Size(3, 3));
 
-    //Mat mu2;
-    //blur(image32f.mul(image32f), mu2, Size(3, 3));
+    Mat mu2;
+    blur(image32f.mul(image32f), mu2, Size(3, 3));
 
-    //cv::sqrt(mu2 - mu.mul(mu), sigma);
+    cv::sqrt(mu2 - mu.mul(mu), sigma);
+    //cv::Mat mean;
+    //cv::meanStdDev(image, mean, sigma);
 
-    //sigma = mat2gray(sigma);
-    //imshow("coke", mat2gray(image32f));
-    //imshow("mu", mat2gray(mu));
-    //imshow("median", tempMedian);
-    //double minVal, maxVal;
-    //minMaxLoc(sigma, &minVal, &maxVal);
-    //sigma.convertTo(sigma, CV_8U, 255.0/(maxVal - minVal));
-    image.copyTo(sigma);
+    sigma = mat2gray(sigma);
+    cv::cvtColor(sigma, sigma, CV_BGR2GRAY);
+    cv::cvtColor(image, image, CV_BGR2GRAY);
+   // cv::imshow("sigma", sigma);
+
+    //image.copyTo(sigma);
+    //gettimeofday (&endwtime, NULL);
+    //seq_time = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6
+    //        + endwtime.tv_sec - startwtime.tv_sec);
+    //cout << "Std calculation time: " << seq_time << "\n";
+
+    double minVal, maxVal;
+    minMaxLoc(sigma, &minVal, &maxVal);
+    sigma.convertTo(sigma, CV_8UC1, 255.0/(maxVal - minVal));
+    minMaxLoc(sigma, &minVal, &maxVal);
+    //cout << minVal << ", " << maxVal << "\n";
+    //image.copyTo(sigma);
+    cv::threshold(sigma, sigma, 64, 255, CV_THRESH_BINARY);
+    cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
+    cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
+    structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
+    cv::morphologyEx( sigma, sigma, cv::MORPH_CLOSE, structuringElement );
+    structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(8, 8));
+    cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
     if(debugShow)
     {
-        cv::imwrite("../../negative43_std.jpg", sigma);
+        cv::Mat aggImage;        
+        cv::add(image, sigma, aggImage);
+        imgNames.str("");
+        imgNames << imgName << "_std.jpg";
+        cv::imwrite(imgNames.str(), sigma);
+        //cv::add(aggImage, sigma, aggImage);
         char* source_window = "Source";
+
         namedWindow( source_window, CV_WINDOW_AUTOSIZE );
         imshow(source_window, sigma);
-        createTrackbar( " Canny thresh:", "Source", &thresh, max_thresh, thresh_callback );
+        imshow("Agg_sigm", aggImage);
+        createTrackbar( " Dilation Kernel:", "Source", &thresh, max_thresh, thresh_callback );
     }
     thresh_callback( 0, 0);
 
