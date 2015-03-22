@@ -14,7 +14,7 @@ int max_thresh = 40;
 RNG rng(12345);
 int gaussiansharpenblur = 4;
 int maxgaussiansharpenblur = 8;
-int debugShow = 0;
+int debugShow = 1;
 std::stringstream imgName;
 std::vector<cv::Mat> inImages(202);
 std::vector<std::string> imageNames;
@@ -90,7 +90,12 @@ void thresh_callback(int img, void*)
         //Mass center
         for( int i = 0; i < contours.size(); i++ ){ 
             //cout << "Mass center: " << (int)mc[i].x << ", " << (int)mc[i].y << "\n";
+            std::stringstream label;
+            label << cv::contourArea(contours[i]);
+            
             cv::circle(drawing ,cvPoint(mc[i].x, mc[i].y), 5, CV_RGB(0,255,0), -1);
+            cv::putText(drawing, label.str(), cvPoint(mc[i].x, mc[i].y), FONT_HERSHEY_PLAIN, 1.0, CV_RGB(0,255,0), 2.0);
+            label.str("");
         }
 
         /// Show in a window
