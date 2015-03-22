@@ -2,6 +2,7 @@
 #include<opencv2/opencv.hpp>
 #include <sys/time.h>
 #include "include/tinydir.h"
+#include "math.h"
 
 using namespace std;
 using namespace cv;
@@ -14,10 +15,11 @@ int max_thresh = 40;
 RNG rng(12345);
 int gaussiansharpenblur = 4;
 int maxgaussiansharpenblur = 8;
-int debugShow = 1;
+int debugShow = 0;
 std::stringstream imgName;
 std::vector<cv::Mat> inImages(202);
 std::vector<std::string> imageNames;
+cv::Mat image;
 
 static void captureFrame()
 {
@@ -52,6 +54,15 @@ Mat mat2gray(const Mat& src)
     return dst;
 }
 
+void validateContours(cv::Point2f& mc, int ci)
+{
+    int indX = (int)mc.x;
+    int indY = (int)mc.y;
+    cv::Mat canvas = cv::Mat::zeros(image.size() ,CV_8UC1);
+    drawContours( canvas, contours, ci, cv::Scalar(255, 255, 255), CV_FILLED);
+    //cv::imshow("curr contour", canvas);
+}
+
 /** @function thresh_callback */
 void thresh_callback(int img, void*)
 {
@@ -74,6 +85,7 @@ void thresh_callback(int img, void*)
     for( int i = 0; i < contours.size(); i++ ){
         mu[i] = moments( contours[i], false );
         mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
+        validateContours(mc[i], i);
     }
 
     if(debugShow)
@@ -92,7 +104,7 @@ void thresh_callback(int img, void*)
             //cout << "Mass center: " << (int)mc[i].x << ", " << (int)mc[i].y << "\n";
             std::stringstream label;
             label << cv::contourArea(contours[i]);
-            
+
             cv::circle(drawing ,cvPoint(mc[i].x, mc[i].y), 5, CV_RGB(0,255,0), -1);
             cv::putText(drawing, label.str(), cvPoint(mc[i].x, mc[i].y), FONT_HERSHEY_PLAIN, 1.0, CV_RGB(0,255,0), 2.0);
             label.str("");
@@ -124,7 +136,6 @@ int main()
     captureFrame();
     for( int img = 0; img < imageNames.size(); img ++ )
     {
-        cv::Mat image;
         inImages[img].copyTo(image);
 
         if(!image.data)
