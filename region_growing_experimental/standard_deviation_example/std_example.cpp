@@ -1,8 +1,9 @@
 #include <iostream>
 #include<opencv2/opencv.hpp>
 #include <sys/time.h>
-#include "include/tinydir.h"
 #include "math.h"
+#include "include/tinydir.h"
+#include "stdio.h"
 
 using namespace std;
 using namespace cv;
@@ -15,11 +16,15 @@ int max_thresh = 40;
 RNG rng(12345);
 int gaussiansharpenblur = 4;
 int maxgaussiansharpenblur = 8;
-int debugShow = 0;
+int debugShow = 1;
 std::stringstream imgName;
-std::vector<cv::Mat> inImages(202);
+std::vector<cv::Mat> inImages(203);
 std::vector<std::string> imageNames;
 cv::Mat image;
+double bigContourThresh = 15000;
+float intensityThresh = 100.0;
+FILE *fpw;
+int img;
 
 static void captureFrame()
 {
@@ -54,13 +59,57 @@ Mat mat2gray(const Mat& src)
     return dst;
 }
 
-void validateContours(cv::Point2f& mc, int ci)
+bool validateContours(cv::Point2f& mc, int ci)
 {
     int indX = (int)mc.x;
     int indY = (int)mc.y;
-    cv::Mat canvas = cv::Mat::zeros(image.size() ,CV_8UC1);
-    drawContours( canvas, contours, ci, cv::Scalar(255, 255, 255), CV_FILLED);
-    //cv::imshow("curr contour", canvas);
+    int dimSize = (int)sqrt(contourArea(contours[ci])) / 2;
+    if(cv::contourArea(contours[ci]) > bigContourThresh)
+    {
+        cv::Mat canvas = cv::Mat::zeros(image.size() ,CV_8UC1);
+        drawContours( canvas, contours, ci, cv::Scalar(255, 255, 255), CV_FILLED);
+        cv::Mat contourROI;
+        image.copyTo(contourROI, canvas);
+        int xVertice, yVertice, roiWidthX, roiWidthY;
+        if(indX - dimSize >= 0 && indX - dimSize + 2 * dimSize < image.cols)
+        {
+            xVertice = indX - dimSize;
+            roiWidthX = 2 * dimSize;
+        }
+        else if(indX - dimSize < 0)
+        {
+            xVertice = 0;
+            roiWidthX = 2 * dimSize;
+        }
+        else
+        {
+            xVertice = indX - dimSize;
+            roiWidthX = image.cols - xVertice;
+        }
+        if(indY - dimSize >= 0 && indY - dimSize + 2 * dimSize < image.rows)
+        {
+            yVertice = indY - dimSize;
+            roiWidthY = 2 * dimSize;
+        }
+        else if(indY - dimSize < 0)
+        {
+            yVertice = 0;
+            roiWidthY = 2 * dimSize;
+        }
+        else
+        {
+            yVertice = indY - dimSize;
+            roiWidthY = image.rows - yVertice;
+        }
+        cv::Mat ROI = image(cv::Rect(xVertice, yVertice, roiWidthX, roiWidthY));
+        cv::Scalar mean = cv::mean(ROI);
+        //cout << mean[0] << "\n";
+        //cv::imshow("curr contour", ROI);
+        //cv::waitKey(0);
+        if(mean[0] > intensityThresh)
+            return false;
+    }
+    return true;
 }
 
 /** @function thresh_callback */
@@ -81,33 +130,43 @@ void thresh_callback(int img, void*)
     findContours( tempSigma, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
     vector<Moments> mu(contours.size() );
     vector<Point2f> mc( contours.size() );
+    std::vector<bool> realContours;
     //Mass center
     for( int i = 0; i < contours.size(); i++ ){
         mu[i] = moments( contours[i], false );
         mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
-        validateContours(mc[i], i);
+        realContours.push_back(validateContours(mc[i], i));
     }
 
     if(debugShow)
     {
         /// Draw contours
         Mat drawing = Mat::zeros( sigma.size(), CV_8UC3 );
+        int j = 0;
         for( int i = 0; i< contours.size(); i++ )
         {
-            Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-            drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
-            //cout << "contour: " << i << ", size: " << contours[i].size() << "\n";
+            if(realContours.at(i))
+            {
+                Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+                drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
+                //cout << "contour: " << i << ", size: " << contours[i].size() << "\n";
+                fprintf(fpw, "%s %d %f %f %f\n", imageNames.at(img).c_str(), j, mc[i].x, mc[i].y, cv::contourArea(contours[i]));
+                j ++;
+            }
         }
 
         //Mass center
         for( int i = 0; i < contours.size(); i++ ){ 
-            //cout << "Mass center: " << (int)mc[i].x << ", " << (int)mc[i].y << "\n";
-            std::stringstream label;
-            label << cv::contourArea(contours[i]);
+            if(realContours.at(i))
+            {
+                //cout << "Mass center: " << (int)mc[i].x << ", " << (int)mc[i].y << "\n";
+                std::stringstream label;
+                label << cv::contourArea(contours[i]);
 
-            cv::circle(drawing ,cvPoint(mc[i].x, mc[i].y), 5, CV_RGB(0,255,0), -1);
-            cv::putText(drawing, label.str(), cvPoint(mc[i].x, mc[i].y), FONT_HERSHEY_PLAIN, 1.0, CV_RGB(0,255,0), 2.0);
-            label.str("");
+                cv::circle(drawing ,cvPoint(mc[i].x, mc[i].y), 5, CV_RGB(0,255,0), -1);
+                cv::putText(drawing, label.str(), cvPoint(mc[i].x, mc[i].y), FONT_HERSHEY_PLAIN, 1.0, CV_RGB(0,255,0), 2.0);
+                label.str("");
+            }
         }
 
         /// Show in a window
@@ -115,7 +174,7 @@ void thresh_callback(int img, void*)
         //cout << "Contours: " << contours.size() << "\n";
         //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         //imshow( "Contours", drawing );
-        imgName << "../../../../dataset_std_variance_contours/" << imageNames.at(img);
+        imgName << "../../../../dataset_std_variance_contours_BOD/" << imageNames.at(img);
         cv::imwrite( imgName.str(), drawing );
         imgName.str("");
     }
@@ -129,12 +188,13 @@ cv::Mat& subtractBackground(cv::Mat& image)
 
 int main()
 {
+    fpw = fopen("../../../../dataset_std_variance_contours_BOD/results.txt", "w+");
     struct timeval startwtime, endwtime;
     double seq_time;
     gettimeofday (&startwtime, NULL);
     imageNames.clear();
     captureFrame();
-    for( int img = 0; img < imageNames.size(); img ++ )
+    for( img = 0; img < imageNames.size(); img ++ )
     {
         inImages[img].copyTo(image);
 
@@ -201,7 +261,7 @@ int main()
             qualityType.push_back(CV_IMWRITE_JPEG_QUALITY);
             qualityType.push_back(100);
             imgName << "../../../../dataset_std_variance/" << imageNames.at(img);
-            cv::imwrite( imgName.str(), sigmaPure, qualityType );
+            //   cv::imwrite( imgName.str(), sigmaPure, qualityType );
             imgName.str("");
             //cv::add(aggImage, sigma, aggImage);
             //char* source_window = "Source";
@@ -215,6 +275,7 @@ int main()
     }
 
     //imwrite("../../negative43_std.jpg", sigma);
+    fclose(fpw);
     waitKey(0);
     gettimeofday (&endwtime, NULL);
     seq_time = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6
