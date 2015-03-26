@@ -1,41 +1,61 @@
 #include "include/depth_experiments.h"
 
 using namespace std;
+FILE *fpr;
+int totalImages = 61;
+std::stringstream imageNames;
+std::string imgNamePrefix("/home/v/Documents/Pandora_Vision/dataset_depth/depthFrame");
 
 int main()
 {
-    struct timeval startwtime, endwtime;
-    double seq_time;
-    gettimeofday (&startwtime, NULL);
-    std::string imgName = "../depthFrame0239";
-    std::stringstream imgNames;
-    imgNames.str("");
-    imgNames << imgName << ".png";
-    cv::Mat image = cv::imread(imgNames.str(), CV_LOAD_IMAGE_COLOR);//cv::IMREAD_ANYDEPTH|cv::IMREAD_ANYCOLOR);
-    int contoursNo = 7;
-    int contoursCenterY[7] = {99, 287, 443, 21, 161, 411, 237};
-    int contoursCenterX[7] = {53, 125, 39, 248, 320, 397, 626};
-    int sizeEst[7] = {40, 80, 21, 17, 52, 70, 17};
+    fpr = fopen("/home/v/Documents/Pandora_Vision/dataset_std_variance_contours_BOD/rgb_contours_aggregation.txt", "r");
+    for(int i = 216; i <= 216 + totalImages; i ++)
+    {
+        imageNames.str("");
+        struct timeval startwtime, endwtime;
+        double seq_time;
+        gettimeofday (&startwtime, NULL);
+        imageNames << imgNamePrefix << i << ".png";
+        cv::Mat image = cv::imread(imageNames.str(), CV_LOAD_IMAGE_COLOR);//cv::IMREAD_ANYDEPTH|cv::IMREAD_ANYCOLOR);
+        int contoursNo;
+        int imageId;
+        fscanf( fpr, "%d", &imageId);
+        fscanf( fpr, "%d", &contoursNo);
+        std::vector<int> contourSpecs;
+        for(int j = 0; j < 3 * contoursNo; j ++)
+        {
+            double tempSpec;
+            fscanf( fpr, "%f", &tempSpec);
+            contourSpecs.push_back((int)tempSpec);
+        }
+        for(int j = 3 * contoursNo; j < 32; j ++)
+        {
+            fscanf( fpr, "%d", &imageId);
+        }
 
-    if(!image.data)
-    {
-        cout << "Cannot open image \n";
-        return 0;
-    }
-    for(int i = 0; i < contoursNo; i ++)
-    {
-        if(contoursCenterY[i] + sizeEst[i] > 480)
-            contoursCenterY[i] = 480 - sizeEst[i];
-        if(contoursCenterY[i] - sizeEst[i] < 0)
-            contoursCenterY[i] = 0 + sizeEst[i];
-        if(contoursCenterX[i] + sizeEst[i] > 640)
-            contoursCenterX[i] = 640 - sizeEst[i];
-        if(contoursCenterX[i] - sizeEst[i] < 0)
-            contoursCenterX[i] = 0 + sizeEst[i];
-        cout << "size; " << sizeEst[i] << "\n";
-        cv::Mat ROI = image(cv::Rect(contoursCenterX[i] - sizeEst[i], contoursCenterY[i] - sizeEst[i], 2 * sizeEst[i], 2 * sizeEst[i]));
-        cv::imshow("ROI", ROI);
-        cv::waitKey();
+        if(!image.data)
+        {
+            cout << "Cannot open image \n";
+            return 0;
+        }
+        for(int ci = 0; ci < contoursNo; ci ++)
+        {
+            int sizeEst = (int)(sqrt(contourSpecs.at(2 + ci * 3)) / 2);
+            if(contourSpecs.at(1 + ci * 3) + sizeEst > 480)
+                contourSpecs.at(1 + ci * 3) = 480 - sizeEst;
+            if(contourSpecs.at(1 + ci * 3) - sizeEst < 0)
+                contourSpecs.at(1 + ci * 3) = 0 + sizeEst;
+            if(contourSpecs.at(0 + ci * 3) + sizeEst > 640)
+                contourSpecs.at(0 + ci * 3) = 640 - sizeEst;
+            if(contourSpecs.at(0 + ci * 3) - sizeEst < 0)
+                contourSpecs.at(0 + ci * 3) = 0 + sizeEst;
+            cout << "size; " << sizeEst << "\n";
+            cv::Mat ROI = image(cv::Rect(contourSpecs.at(0 + ci * 3) - sizeEst, contourSpecs.at(1 + ci * 3) - sizeEst, 2 * sizeEst, 2 * sizeEst));
+            //cv::imshow("ROI", ROI);
+            //cv::waitKey();
+        }
+        contourSpecs.clear();
+        imageNames.str("");
     }
 }
 
