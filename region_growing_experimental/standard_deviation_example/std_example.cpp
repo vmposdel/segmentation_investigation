@@ -11,7 +11,7 @@ using namespace cv;
 Mat sigma;
 vector<vector<Point> > contours;
 vector<Vec4i> hierarchy;
-int thresh = 19;
+int thresh = 12;
 int max_thresh = 40;
 RNG rng(12345);
 int gaussiansharpenblur = 4;
@@ -22,6 +22,9 @@ std::vector<cv::Mat> inImages(203);
 std::vector<std::string> imageNames;
 cv::Mat image;
 double bigContourThresh = 15000;
+double hugeContourThresh = 20000;
+int lowerContourNumberToTestHuge = 4;
+double smallContourThresh = 1500;
 float intensityThresh = 100.0;
 FILE *fpw;
 int img;
@@ -29,7 +32,7 @@ int img;
 static void captureFrame()
 {
     tinydir_dir dir;
-    tinydir_open(&dir, "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images");
+    tinydir_open(&dir, "/home/v/Documents/Pandora_Vision/dataset_rgb");
     cv::Mat tempImg;
     std::stringstream imgName;
     int i = 0;
@@ -39,7 +42,7 @@ static void captureFrame()
         tinydir_readfile(&dir, &file);
         if(strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
         {
-            imgName << "/home/v/Documents/Pandora_Vision/opencv_traincascade/new_svm_data/data/Test_Negative_Images/" << file.name;
+            imgName << "/home/v/Documents/Pandora_Vision/dataset_rgb/" << file.name;
             tempImg = cv::imread(imgName.str(), CV_LOAD_IMAGE_COLOR);
             if(!tempImg.data)
                 continue;
@@ -64,7 +67,9 @@ bool validateContours(cv::Point2f& mc, int ci)
     int indX = (int)mc.x;
     int indY = (int)mc.y;
     int dimSize = (int)sqrt(contourArea(contours[ci])) / 2;
-    if(cv::contourArea(contours[ci]) > bigContourThresh)
+    if(contours.size() > lowerContourNumberToTestHuge && cv::contourArea(contours[ci]) > hugeContourThresh)
+        return false;
+    else if(cv::contourArea(contours[ci]) > bigContourThresh)
     {
         cv::Mat canvas = cv::Mat::zeros(image.size() ,CV_8UC1);
         drawContours( canvas, contours, ci, cv::Scalar(255, 255, 255), CV_FILLED);
@@ -109,6 +114,8 @@ bool validateContours(cv::Point2f& mc, int ci)
         if(mean[0] > intensityThresh)
             return false;
     }
+    else if(cv::contourArea(contours[ci]) < smallContourThresh)
+        return false;
     return true;
 }
 
@@ -174,7 +181,7 @@ void thresh_callback(int img, void*)
         //cout << "Contours: " << contours.size() << "\n";
         //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         //imshow( "Contours", drawing );
-        imgName << "../../../../dataset_std_variance_contours_BOD/" << imageNames.at(img);
+        imgName << "../../../../dataset_std_variance_contours_BOD_new/" << imageNames.at(img);
         cv::imwrite( imgName.str(), drawing );
         imgName.str("");
     }
@@ -188,7 +195,7 @@ cv::Mat& subtractBackground(cv::Mat& image)
 
 int main()
 {
-    fpw = fopen("../../../../dataset_std_variance_contours_BOD/results.txt", "w+");
+    fpw = fopen("../../../../dataset_std_variance_contours_BOD_new/results.txt", "w+");
     struct timeval startwtime, endwtime;
     double seq_time;
     gettimeofday (&startwtime, NULL);
