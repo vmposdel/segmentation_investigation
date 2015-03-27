@@ -138,11 +138,18 @@ void thresh_callback(int img, void*)
     vector<Moments> mu(contours.size() );
     vector<Point2f> mc( contours.size() );
     std::vector<bool> realContours;
+        std::vector<vector<Point> > contours_poly( contours.size() );
+        std::vector<Rect> boundRect( contours.size() );
+        std::vector<Point2f>center( contours.size() );
+        std::vector<float>radius( contours.size() );
     //Mass center
     for( int i = 0; i < contours.size(); i++ ){
         mu[i] = moments( contours[i], false );
         mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
         realContours.push_back(validateContours(mc[i], i));
+                cv::approxPolyDP( cv::Mat(contours[i]), contours_poly[i], 3, true );
+                boundRect[i] = cv::boundingRect( cv::Mat(contours_poly[i]) );
+                cv::minEnclosingCircle( (cv::Mat)contours_poly[i], center[i], radius[i] );
     }
 
     if(debugShow)
@@ -154,9 +161,11 @@ void thresh_callback(int img, void*)
         {
             if(realContours.at(i))
             {
-                Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-                drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
+                cv::Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+                drawContours( drawing, contours_poly, i, color, 2, 8, hierarchy, 0, Point() );
                 //cout << "contour: " << i << ", size: " << contours[i].size() << "\n";
+                cv::rectangle( drawing, boundRect[i].tl(), boundRect[i].br(), color, 2, 8, 0 );
+                //cv::circle( drawing, center[i], (int)radius[i], color, 2, 8, 0 );
                 fprintf(fpw, "%s %d %f %f %f\n", imageNames.at(img).c_str(), j, mc[i].x, mc[i].y, cv::contourArea(contours[i]));
                 j ++;
             }
