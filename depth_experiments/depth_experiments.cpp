@@ -121,45 +121,6 @@ void thresh_callback(int img, void*)
     }
 }
 
-
-void reduceNoise(cv::Mat& inImage)
-{
-    cv::Point2f globalCore(inImage.cols / 2, inImage.rows / 2);
-    cv::Point2f llVertice(globalCore.x - (growingPx / 2), globalCore.y - (growingPx / 2));
-    int width = growingPx, height = growingPx;
-    int totalArea = width * height;
-    cv::Scalar avg = cv::Scalar::all(255);
-    cv::Mat drawing = cv::Mat::zeros(inImage.size(), CV_8UC1);
-    while(height < inImage.rows)
-    {
-        cout << totalArea << "\n";
-        cv::Mat coreArea = inImage(cv::Rect(llVertice.x, llVertice.y, width, height));
-        cv::Scalar newAvg;
-        newAvg = cv::mean(coreArea);
-        if(newAvg.val[0] < avg.val[0] - hasRoiThresh)
-        {
-            cv::Mat partArea1 = coreArea(cv::Rect(llVertice.x, llVertice.y, growingPx / 2, height));
-            cv::Mat partArea2 = coreArea(cv::Rect(llVertice.x + width - growingPx / 2, llVertice.y, growingPx / 2, height));
-            cv::Mat partArea3 = coreArea(cv::Rect(llVertice.x + growingPx / 2, llVertice.y, width - growingPx, growingPx / 2));
-            cv::Mat partArea4 = coreArea(cv::Rect(llVertice.x + growingPx / 2, llVertice.y + height - growingPx / 2, width - growingPx, growingPx / 2));
-            cv::Scalar partAvg = cv::mean(partArea1);
-            if(partAvg.val[0] < prevPercentThresh * avg.val[0])
-                cv::circle(drawing ,cvPoint(llVertice.x + growingPx / 4, llVertice.y + height / 2), 5, CV_RGB(0,255,0), -1);
-            partAvg = cv::mean(partArea2);
-            if(partAvg.val[0] < prevPercentThresh * avg.val[0])
-                cv::circle(drawing ,cvPoint(llVertice.x + width - growingPx /2 + growingPx / 4, llVertice.y + height / 2), 5, CV_RGB(0,255,0), -1);
-            avg = newAvg;
-        }
-        llVertice.x -= (growingPx / 2);
-        llVertice.y -= (growingPx / 2);
-        width += growingPx;
-        height += growingPx;
-        totalArea = width * height;
-    }
-    cv::imshow("ROI", drawing);
-    cv::waitKey();
-}
-
 int main()
 {
     fpw = fopen("../../../dataset_depth_contours/results.txt", "w+");
@@ -179,7 +140,6 @@ int main()
         }                                                                          
         cv::cvtColor(image, image, CV_BGR2GRAY);
         image.copyTo(sigma);
-        reduceNoise(sigma);
 
         //image.copyTo(sigma);
         //gettimeofday (&endwtime, NULL);
@@ -187,21 +147,7 @@ int main()
         //        + endwtime.tv_sec - startwtime.tv_sec);
         //cout << "Std calculation time: " << seq_time << "\n";
 
-        double minVal, maxVal;
-        minMaxLoc(sigma, &minVal, &maxVal);
-        sigma.convertTo(sigma, CV_8UC1, 255.0/(maxVal - minVal));
-        minMaxLoc(sigma, &minVal, &maxVal);
-        cv::Mat sigmaPure;
-        sigma.copyTo(sigmaPure);
-        //cout << minVal << ", " << maxVal << "\n";
-        //image.copyTo(sigma);
-        cv::threshold(sigma, sigma, 64, 255, CV_THRESH_BINARY);
-        cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
-        cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
-        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
-        cv::morphologyEx( sigma, sigma, cv::MORPH_CLOSE, structuringElement );
-        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(8, 8));
-        cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
+        cv::threshold(sigma, sigma, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
         if(debugShow)
         {
             cv::Mat aggImage;        
@@ -212,7 +158,7 @@ int main()
             qualityType.push_back(CV_IMWRITE_JPEG_QUALITY);
             qualityType.push_back(100);
             imgName << "../../../dataset_depth_std_variance/" << imageNames.at(img);
-            cv::imwrite( imgName.str(), sigmaPure, qualityType );
+            cv::imwrite( imgName.str(), sigma, qualityType );
             imgName.str("");
             //cv::add(aggImage, sigma, aggImage);
             //char* source_window = "Source";
@@ -222,7 +168,7 @@ int main()
             //imshow("Agg_sigm", aggImage);
             createTrackbar( " Dilation Kernel:", "Source", &thresh, max_thresh, thresh_callback );
         }
-        thresh_callback( img, 0);
+        //thresh_callback( img, 0);
     }
 
     //imwrite("../../negative43_std.jpg", sigma);
