@@ -1,73 +1,237 @@
 #include "include/depth_experiments.h"
 
 using namespace std;
-FILE *fpr;
-int totalImages = 61;
-std::stringstream imageNames;
-std::string imgNamePrefix("/home/v/Documents/Pandora_Vision/dataset_depth/depthFrame0");
+using namespace cv;
 
-int main()
+Mat sigma;
+vector<vector<Point> > contours;
+vector<Vec4i> hierarchy;
+int thresh = 12;
+int max_thresh = 40;
+RNG rng(12345);
+int gaussiansharpenblur = 4;
+int maxgaussiansharpenblur = 8;
+int debugShow = 1;
+std::stringstream imgName;
+std::vector<cv::Mat> inImages(203);
+std::vector<std::string> imageNames;
+cv::Mat image;
+double bigContourThresh = 15000;
+double hugeContourThresh = 20000;
+int lowerContourNumberToTestHuge = 4;
+double smallContourThresh = 1500;
+float intensityThresh = 100.0;
+FILE *fpw;
+int img;
+int growingPx = 50;
+double hasRoiThresh = 70;
+double prevPercentThresh = 1.3;
+
+static void captureFrame()
 {
-    fpr = fopen("/home/v/Documents/Pandora_Vision/dataset_std_variance_contours_BOD_new/rgb_contours_aggregation.txt", "r");
-    for(int i = 216; i <= 216 + totalImages; i ++)
+    tinydir_dir dir;
+    tinydir_open(&dir, "/home/v/Documents/Pandora_Vision/dataset_depth");
+    cv::Mat tempImg;
+    std::stringstream imgName;
+    int i = 0;
+    while (dir.has_next)
     {
-        imageNames.str("");
-        std::stringstream outImageNames;
-        struct timeval startwtime, endwtime;
-        double seq_time;
-        gettimeofday (&startwtime, NULL);
-        imageNames << imgNamePrefix << i << ".png";
-        cv::Mat image = cv::imread(imageNames.str(), CV_LOAD_IMAGE_COLOR);//cv::IMREAD_ANYDEPTH|cv::IMREAD_ANYCOLOR);
-        int contoursNo;
-        int imageId;
-        fscanf( fpr, "%d", &imageId);
-        fscanf( fpr, "%d", &contoursNo);
-        std::vector<int> contourSpecs;
-        for(int j = 0; j < 3 * contoursNo; j ++)
+        tinydir_file file;
+        tinydir_readfile(&dir, &file);
+        if(strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0)
         {
-            double tempSpec;
-            fscanf( fpr, "%lf", &tempSpec);
-            contourSpecs.push_back((int)tempSpec);
-            //cout << "contoArea" << contourSpecs.at(2 + ci * 3) << "\n";
+            imgName << "/home/v/Documents/Pandora_Vision/dataset_depth/" << file.name;
+            tempImg = cv::imread(imgName.str(), CV_LOAD_IMAGE_COLOR);
+            if(!tempImg.data)                                                      
+                continue;
+            tempImg.copyTo(inImages[i]);
+            imageNames.push_back(file.name);
+            imgName.str("");
+            i++;
         }
-        for(int j = 3 * contoursNo + 2; j < 32; j ++)
+        tinydir_next(&dir);
+    }
+}
+
+/** @function thresh_callback */
+void thresh_callback(int img, void*)
+{
+    cv::Mat tempSigma;
+
+    //cv::Laplacian(tempSigma, canny_output, CV_8UC1);
+    //cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(40, 40));
+    ////cv::morphologyEx( canny_output, canny_output, cv::MORPH_OPEN, structuringElement );
+    //cv::morphologyEx( canny_output, canny_output, cv::MORPH_CLOSE, structuringElement );
+    //cv::imshow("tempSigma1", canny_output);
+    //cv::waitKey();
+    /// Find contours
+    //cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(thresh, thresh));
+    //cv::erode(sigma, tempSigma, structuringElement);
+    //cv::dilate(sigma, tempSigma, structuringElement);                              
+    sigma.copyTo(tempSigma);
+    findContours( tempSigma, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    vector<Moments> mu(contours.size() );
+    vector<Point2f> mc( contours.size() );
+    std::vector<bool> realContours;
+    //Mass center
+    for( int i = 0; i < contours.size(); i++ ){
+        mu[i] = moments( contours[i], false );
+        mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 );
+        realContours.push_back(true);//validateContours(mc[i], i));
+    }
+    if(debugShow)
+    {
+        /// Draw contours
+        Mat drawing = Mat::zeros( sigma.size(), CV_8UC3 );
+        int j = 0;
+        for( int i = 0; i< contours.size(); i++ )
         {
-            fscanf( fpr, "%d", &imageId);
+            if(realContours.at(i))
+            {
+                Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+                drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
+                //cout << "contour: " << i << ", size: " << contours[i].size() << "\n";
+                fprintf(fpw, "%s %d %f %f %f\n", imageNames.at(img).c_str(), j, mc[i].x, mc[i].y, cv::contourArea(contours[i]));
+                j ++;                                                              
+            }
         }
 
-        if(!image.data)
-        {
-            cout << "Cannot open image \n";
-            continue;
-        }
-        for(int ci = 0; ci < contoursNo; ci ++)
-        {
-            cout << "Contour: " << ci << "of image " << i << "\n";
-            int sizeEst = (int)(sqrt(contourSpecs.at(2 + ci * 3)) / 1);
-            if(contourSpecs.at(1 + ci * 3) + sizeEst > 480)
-                contourSpecs.at(1 + ci * 3) = 480 - sizeEst;
-            if(contourSpecs.at(1 + ci * 3) - sizeEst < 0)
-                contourSpecs.at(1 + ci * 3) = 0 + sizeEst;
-            if(contourSpecs.at(0 + ci * 3) + sizeEst > 640)
-                contourSpecs.at(0 + ci * 3) = 640 - sizeEst;
-            if(contourSpecs.at(0 + ci * 3) - sizeEst < 0)
-                contourSpecs.at(0 + ci * 3) = 0 + sizeEst;
-            cout << "size; " << sizeEst << ", " << i << "\n";
-            cv::Mat ROI = image(cv::Rect(contourSpecs.at(0 + ci * 3) - sizeEst, contourSpecs.at(1 + ci * 3) - sizeEst, 2 * sizeEst, 2 * sizeEst));
-            outImageNames << "/home/v/Documents/Pandora_Vision/depth_ROI/frame" << i << "_" << ci << ".png";
-            cv::imwrite(outImageNames.str(), ROI);
-            outImageNames.str("");
-            cv::Canny(ROI, ROI, 10, 3 * 10);
-            outImageNames << "/home/v/Documents/Pandora_Vision/depth_ROI_edges/frame" << i << "_" << ci << ".png";
-            cv::imwrite(outImageNames.str(), ROI);
-            outImageNames.str("");
+        //Mass center
+        for( int i = 0; i < contours.size(); i++ ){
+            if(realContours.at(i))
+            {
+                //cout << "Mass center: " << (int)mc[i].x << ", " << (int)mc[i].y << "\n";
+                std::stringstream label;
+                label << cv::contourArea(contours[i]);
 
-            //cv::imshow("ROI", ROI);
-            //cv::waitKey();
+                cv::circle(drawing ,cvPoint(mc[i].x, mc[i].y), 5, CV_RGB(0,255,0), -1);
+                cv::putText(drawing, label.str(), cvPoint(mc[i].x, mc[i].y), FONT_HERSHEY_PLAIN, 1.0, CV_RGB(0,255,0), 2.0);
+                label.str("");
+            }
         }
-        contourSpecs.clear();
-        imageNames.str("");
+
+        /// Show in a window
+
+        //cout << "Contours: " << contours.size() << "\n";
+        //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+        //imshow( "Contours", drawing );
+        imgName << "../../../dataset_depth_contours/" << imageNames.at(img);
+        cv::imwrite( imgName.str(), drawing );
+        imgName.str("");                                                           
     }
 }
 
 
+void reduceNoise(cv::Mat& inImage)
+{
+    cv::Point2f globalCore(inImage.cols / 2, inImage.rows / 2);
+    cv::Point2f llVertice(globalCore.x - (growingPx / 2), globalCore.y - (growingPx / 2));
+    int width = growingPx, height = growingPx;
+    int totalArea = width * height;
+    cv::Scalar avg = cv::Scalar::all(255);
+    cv::Mat drawing = cv::Mat::zeros(inImage.size(), CV_8UC1);
+    while(height < inImage.rows)
+    {
+        cout << totalArea << "\n";
+        cv::Mat coreArea = inImage(cv::Rect(llVertice.x, llVertice.y, width, height));
+        cv::Scalar newAvg;
+        newAvg = cv::mean(coreArea);
+        if(newAvg.val[0] < avg.val[0] - hasRoiThresh)
+        {
+            cv::Mat partArea1 = coreArea(cv::Rect(llVertice.x, llVertice.y, growingPx / 2, height));
+            cv::Mat partArea2 = coreArea(cv::Rect(llVertice.x + width - growingPx / 2, llVertice.y, growingPx / 2, height));
+            cv::Mat partArea3 = coreArea(cv::Rect(llVertice.x + growingPx / 2, llVertice.y, width - growingPx, growingPx / 2));
+            cv::Mat partArea4 = coreArea(cv::Rect(llVertice.x + growingPx / 2, llVertice.y + height - growingPx / 2, width - growingPx, growingPx / 2));
+            cv::Scalar partAvg = cv::mean(partArea1);
+            if(partAvg.val[0] < prevPercentThresh * avg.val[0])
+                cv::circle(drawing ,cvPoint(llVertice.x + growingPx / 4, llVertice.y + height / 2), 5, CV_RGB(0,255,0), -1);
+            partAvg = cv::mean(partArea2);
+            if(partAvg.val[0] < prevPercentThresh * avg.val[0])
+                cv::circle(drawing ,cvPoint(llVertice.x + width - growingPx /2 + growingPx / 4, llVertice.y + height / 2), 5, CV_RGB(0,255,0), -1);
+            avg = newAvg;
+        }
+        llVertice.x -= (growingPx / 2);
+        llVertice.y -= (growingPx / 2);
+        width += growingPx;
+        height += growingPx;
+        totalArea = width * height;
+    }
+    cv::imshow("ROI", drawing);
+    cv::waitKey();
+}
+
+int main()
+{
+    fpw = fopen("../../../dataset_depth_contours/results.txt", "w+");
+    struct timeval startwtime, endwtime;
+    double seq_time;
+    gettimeofday (&startwtime, NULL);
+    imageNames.clear();
+    captureFrame();
+    for( img = 0; img < imageNames.size(); img ++ )
+    {
+        inImages[img].copyTo(image);
+
+        if(!image.data)
+        {
+            cout << "Cannot open image \n";
+            return 0;
+        }                                                                          
+        cv::cvtColor(image, image, CV_BGR2GRAY);
+        image.copyTo(sigma);
+        reduceNoise(sigma);
+
+        //image.copyTo(sigma);
+        //gettimeofday (&endwtime, NULL);
+        //seq_time = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6
+        //        + endwtime.tv_sec - startwtime.tv_sec);
+        //cout << "Std calculation time: " << seq_time << "\n";
+
+        double minVal, maxVal;
+        minMaxLoc(sigma, &minVal, &maxVal);
+        sigma.convertTo(sigma, CV_8UC1, 255.0/(maxVal - minVal));
+        minMaxLoc(sigma, &minVal, &maxVal);
+        cv::Mat sigmaPure;
+        sigma.copyTo(sigmaPure);
+        //cout << minVal << ", " << maxVal << "\n";
+        //image.copyTo(sigma);
+        cv::threshold(sigma, sigma, 64, 255, CV_THRESH_BINARY);
+        cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
+        cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
+        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
+        cv::morphologyEx( sigma, sigma, cv::MORPH_CLOSE, structuringElement );
+        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(8, 8));
+        cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
+        if(debugShow)
+        {
+            cv::Mat aggImage;        
+            cv::add(image, sigma, aggImage);
+            //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+            //imshow( "Contours", drawing );                                       
+            std::vector<int> qualityType;
+            qualityType.push_back(CV_IMWRITE_JPEG_QUALITY);
+            qualityType.push_back(100);
+            imgName << "../../../dataset_depth_std_variance/" << imageNames.at(img);
+            cv::imwrite( imgName.str(), sigmaPure, qualityType );
+            imgName.str("");
+            //cv::add(aggImage, sigma, aggImage);
+            //char* source_window = "Source";
+
+            //namedWindow( source_window, CV_WINDOW_AUTOSIZE );
+            //imshow(source_window, sigma);
+            //imshow("Agg_sigm", aggImage);
+            createTrackbar( " Dilation Kernel:", "Source", &thresh, max_thresh, thresh_callback );
+        }
+        thresh_callback( img, 0);
+    }
+
+    //imwrite("../../negative43_std.jpg", sigma);
+    fclose(fpw);
+    waitKey(0);
+    gettimeofday (&endwtime, NULL);
+    seq_time = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6
+            + endwtime.tv_sec - startwtime.tv_sec);
+    cout << "Std plus contour calculation time: " << seq_time << "\n";
+
+    return 0;
+}
