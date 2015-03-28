@@ -6,7 +6,7 @@ using namespace cv;
 Mat sigma;
 vector<vector<Point> > contours;
 vector<Vec4i> hierarchy;
-int thresh = 12;
+int thresh = 18;
 int max_thresh = 40;
 RNG rng(12345);
 int gaussiansharpenblur = 4;
@@ -26,6 +26,14 @@ int img;
 int growingPx = 50;
 double hasRoiThresh = 70;
 double prevPercentThresh = 1.3;
+int borderThresh = 20;
+int validateThresh = 150;
+int lowerWhitesThresh = 20;
+int higherWhitesThresh = validateThresh * validateThresh * 0.8;
+bool secondPass = false;
+std::vector<bool> realContours;
+int neighborThresh = 60;
+int rayDiffThresh = 0.5 * validateThresh;
 
 static void captureFrame()
 {
@@ -53,6 +61,105 @@ static void captureFrame()
     }
 }
 
+bool validateContours(cv::Point2f* mc, int ci, std::vector<Point2f>& mcv)
+{
+    if(!secondPass)
+    {
+        int sumWhites = 0;
+        if(cv::contourArea(contours[ci]) < hugeContourThresh)
+        {
+            for(int i = mc->y - validateThresh; i < mc->y + validateThresh; i ++)
+                for(int j = mc->x - validateThresh; j < mc->x + validateThresh; j ++)
+                    if(j >= 0 && j <= sigma.cols && i >= 0 && i <= sigma.rows )
+                    {
+                        if((int)sigma.at<uchar>(j, i) == 255)
+                        {
+                            sumWhites ++;
+                        }
+                    }
+            bool horizontalSerie = true;
+            int horizontalMaxRay = 0;
+            for(int i = mc->y - validateThresh; i < mc->y + validateThresh; i ++)
+            {
+                int horizontalSum = 0;
+                horizontalSerie = true;
+                for(int j = mc->x - validateThresh; j < mc->x + validateThresh; j ++)
+                {
+                    if(j >= 0 && j <= sigma.cols && i >= 0 && i <= sigma.rows )
+                    {
+                        horizontalSum ++;
+                        if((int)sigma.at<uchar>(j, i) != 255)
+                        {
+                            horizontalSerie = false;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        horizontalSerie = false;
+                    }
+                }
+                if(horizontalSum > horizontalMaxRay)
+                    horizontalMaxRay = horizontalSum;
+                if(horizontalSerie)
+                    break;
+            }
+            bool verticalSerie = true;
+            int verticalMaxRay = 0;
+            for(int i = mc->x - validateThresh; i < mc->x + validateThresh; i ++)
+            {
+                int verticalSum = 0;
+                verticalSerie = true;
+                for(int j = mc->y - validateThresh; j < mc->y + validateThresh; j ++)
+                {
+                    if(j >= 0 && j <= sigma.cols && i >= 0 && i <= sigma.rows )
+                    {
+                        verticalSum ++;
+                        if((int)sigma.at<uchar>(j, i) != 255)
+                        {
+                            verticalSerie = false;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        verticalSerie = false;
+                    }
+                }
+                if(verticalSum > verticalMaxRay)
+                    verticalMaxRay = verticalSum;
+                if(verticalSerie)
+                    break;
+            }
+            if(horizontalSerie || verticalSerie)
+            cout << abs(horizontalMaxRay - verticalMaxRay) << "\n";
+
+            if(sumWhites > lowerWhitesThresh && sumWhites < higherWhitesThresh && ((!horizontalSerie && !verticalSerie) || abs(horizontalMaxRay - verticalMaxRay) < rayDiffThresh))
+                return true;
+            else
+                return false;
+        }
+        else
+            return false;
+    }
+    else
+    {
+        for(int i = 0; i < contours.size(); i ++)
+        {
+            if(i != ci)
+                if(realContours.at(i) && (abs(mc->x - mcv[i].x) < neighborThresh) && (abs(mc->y - mcv[i].y) < neighborThresh))
+                {
+                    //cout << realContours.at(i) << "," << abs(mc.x - mcv[i].x) << "," << abs(mc.y - mcv[i].y) << "\n";
+                    mc->x = (mc->x + mcv[i].x) / 2;
+                    mc->y = (mc->y + mcv[i].y) / 2;
+                    realContours.at(i) = false;
+                }
+        }
+        return true;
+    }
+
+}
+
 /** @function thresh_callback */
 void thresh_callback(int img, void*)
 {
@@ -69,16 +176,29 @@ void thresh_callback(int img, void*)
     //cv::erode(sigma, tempSigma, structuringElement);
     //cv::dilate(sigma, tempSigma, structuringElement);                              
     sigma.copyTo(tempSigma);
+    cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(thresh, thresh));
+    //cv::erode(sigma, tempSigma, structuringElement);
+    cv::dilate(sigma, tempSigma, structuringElement);
     findContours( tempSigma, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-    vector<Moments> mu(contours.size() );
-    vector<Point2f> mc( contours.size() );
-    std::vector<bool> realContours;
+    vector<Moments> mu(contours.size());
+    vector<Point2f> mc(contours.size());
     //Mass center
-    for( int i = 0; i < contours.size(); i++ ){
+    realContours.clear();
+    for(int i = 0; i < contours.size(); i ++)
+    {
         mu[i] = moments( contours[i], false );
         mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 );
-        realContours.push_back(true);//validateContours(mc[i], i));
+        realContours.push_back(validateContours(&mc[i], i, mc));
     }
+    secondPass = true;
+    for(int i = 0; i < contours.size(); i ++)
+    {
+        if(realContours.at(i))
+        {
+            realContours.at(i) = validateContours(&mc[i], i, mc);
+        }
+    }
+    secondPass = false;
     if(debugShow)
     {
         /// Draw contours
@@ -115,6 +235,7 @@ void thresh_callback(int img, void*)
         //cout << "Contours: " << contours.size() << "\n";
         //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         //imshow( "Contours", drawing );
+        imgName.str("");                                                           
         imgName << "../../../dataset_depth_contours/" << imageNames.at(img);
         cv::imwrite( imgName.str(), drawing );
         imgName.str("");                                                           
@@ -147,7 +268,23 @@ int main()
         //        + endwtime.tv_sec - startwtime.tv_sec);
         //cout << "Std calculation time: " << seq_time << "\n";
 
-        cv::threshold(sigma, sigma, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+        cv::threshold(sigma, sigma, 1, 255, CV_THRESH_BINARY_INV);
+        cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
+        cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
+        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
+        cv::morphologyEx( sigma, sigma, cv::MORPH_CLOSE, structuringElement );
+        for(int i = 0; i < borderThresh; i ++)
+            for(int j = 0; j < sigma.cols; j ++)
+                sigma.at<uchar>(i, j) = 0;
+        for(int i = sigma.rows - borderThresh; i < sigma.rows; i ++)
+            for(int j = 0; j < sigma.cols; j ++)
+                sigma.at<uchar>(i, j) = 0;
+        for(int i = 0; i < sigma.rows; i ++)
+            for(int j = 0; j < borderThresh; j ++)
+                sigma.at<uchar>(i, j) = 0;
+        for(int i = 0; i < sigma.rows; i ++)
+            for(int j = sigma.cols - borderThresh; j < sigma.cols; j ++)
+                sigma.at<uchar>(i, j) = 0;
         if(debugShow)
         {
             cv::Mat aggImage;        
@@ -168,7 +305,7 @@ int main()
             //imshow("Agg_sigm", aggImage);
             createTrackbar( " Dilation Kernel:", "Source", &thresh, max_thresh, thresh_callback );
         }
-        //thresh_callback( img, 0);
+        thresh_callback( img, 0);
     }
 
     //imwrite("../../negative43_std.jpg", sigma);
