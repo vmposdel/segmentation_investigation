@@ -25,7 +25,7 @@ double bigContourThresh = 15000;
 double hugeContourThresh = 20000;
 int lowerContourNumberToTestHuge = 4;
 double smallContourThresh = 1500;
-float intensityThresh = 100.0;
+float intensityThresh = 150.0;
 FILE *fpw;
 int img;
 
@@ -69,7 +69,7 @@ bool validateContours(cv::Point2f& mc, int ci)
     int dimSize = (int)sqrt(contourArea(contours[ci])) / 2;
     if(contours.size() > lowerContourNumberToTestHuge && cv::contourArea(contours[ci]) > hugeContourThresh)
         return false;
-    else if(cv::contourArea(contours[ci]) > bigContourThresh)
+    else if(cv::contourArea(contours[ci]) > bigContourThresh || cv::contourArea(contours[ci]) < smallContourThresh)
     {
         cv::Mat canvas = cv::Mat::zeros(image.size() ,CV_8UC1);
         drawContours( canvas, contours, ci, cv::Scalar(255, 255, 255), CV_FILLED);
@@ -260,12 +260,10 @@ int main()
         sigma.copyTo(sigmaPure);
         //cout << minVal << ", " << maxVal << "\n";
         //image.copyTo(sigma);
-        cv::threshold(sigma, sigma, 64, 255, CV_THRESH_BINARY);
-        cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
-        cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
-        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
+        cv::threshold(sigma, sigma, 72, 255, CV_THRESH_BINARY);
+        cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(12, 12));
         cv::morphologyEx( sigma, sigma, cv::MORPH_CLOSE, structuringElement );
-        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(8, 8));
+        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
         cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
         if(debugShow)
         {
