@@ -12,7 +12,7 @@ using namespace cv;
 Mat sigma;
 vector<vector<Point> > contours;
 vector<Vec4i> hierarchy;
-int thresh = 12;
+int thresh = 8;
 int max_thresh = 40;
 RNG rng(12345);
 int gaussiansharpenblur = 4;
@@ -22,13 +22,14 @@ std::stringstream imgName;
 std::vector<cv::Mat> inImages(203);
 std::vector<std::string> imageNames;
 cv::Mat image;
-double bigContourThresh = 15000;
-double hugeContourThresh = 20000;
+double bigContourThresh = 4000;
+double hugeContourThresh = 10000;
 int lowerContourNumberToTestHuge = 4;
 double smallContourThresh = 1500;
 float intensityThresh = 150.0;
 FILE *fpw;
 int img;
+int dimSize = 20;
 
 static void captureFrame()
 {
@@ -67,7 +68,7 @@ bool validateContours(cv::Point2f& mc, int ci)
 {
     int indX = (int)mc.x;
     int indY = (int)mc.y;
-    int dimSize = (int)sqrt(contourArea(contours[ci])) / 2;
+    //int dimSize = (int)sqrt(contourArea(contours[ci])) / 2;
     if(contours.size() > lowerContourNumberToTestHuge && cv::contourArea(contours[ci]) > hugeContourThresh)
         return false;
     else if(cv::contourArea(contours[ci]) > bigContourThresh || cv::contourArea(contours[ci]) < smallContourThresh)
@@ -109,18 +110,18 @@ bool validateContours(cv::Point2f& mc, int ci)
         }
         cv::Mat ROI = image(cv::Rect(xVertice, yVertice, roiWidthX, roiWidthY));
         cv::Scalar mean = cv::mean(ROI);
+        //cv::cvtColor(ROI, ROI, CV_BGR2GRAY);
         //cout << mean[0] << "\n";
         //cv::imshow("curr contour", ROI);
         //cv::waitKey(0);
-        haralickFeaturesDetector_.findHaralickFeatures(grayImage);
+        HaralickFeaturesExtractor haralickFeaturesDetector_;
+        haralickFeaturesDetector_.findHaralickFeatures(ROI);
         std::vector<double> haralickFeatures = haralickFeaturesDetector_.getFeatures();
-        if(haralickFeatures[7] > 1000)
+        if(haralickFeatures[5] > 1000 && haralickFeatures[1] > 1000)
             return false;
         //if(mean[0] > intensityThresh)
         //    return false;
     }
-    else if(cv::contourArea(contours[ci]) < smallContourThresh)
-        return false;
     return true;
 }
 
@@ -139,6 +140,7 @@ void thresh_callback(int img, void*)
     cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(thresh, thresh));
     //cv::erode(sigma, tempSigma, structuringElement);
     cv::dilate(sigma, tempSigma, structuringElement);
+    //sigma.copyTo(tempSigma);
     findContours( tempSigma, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
     vector<Moments> mu(contours.size() );
     vector<Point2f> mc( contours.size() );
@@ -265,10 +267,10 @@ int main()
         sigma.copyTo(sigmaPure);
         //cout << minVal << ", " << maxVal << "\n";
         //image.copyTo(sigma);
-        cv::threshold(sigma, sigma, 72, 255, CV_THRESH_BINARY);
-        cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(12, 12));
+        cv::threshold(sigma, sigma, 80, 255, CV_THRESH_BINARY);
+        cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(8, 8));
         cv::morphologyEx( sigma, sigma, cv::MORPH_CLOSE, structuringElement );
-        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
+        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(8, 8));
         cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
         if(debugShow)
         {
@@ -280,7 +282,7 @@ int main()
             qualityType.push_back(CV_IMWRITE_JPEG_QUALITY);
             qualityType.push_back(100);
             imgName << "../../../../dataset_std_variance/" << imageNames.at(img);
-            //   cv::imwrite( imgName.str(), sigmaPure, qualityType );
+            cv::imwrite( imgName.str(), sigma, qualityType );
             imgName.str("");
             //cv::add(aggImage, sigma, aggImage);
             //char* source_window = "Source";
