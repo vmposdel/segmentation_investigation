@@ -546,18 +546,18 @@
       cv::cvtColor(image, temp, CV_BGR2GRAY);
     cv::Mat out = calculateGLCM(temp);
     
-    getAngularSecondMoment(out);
-    getContrast(out);
+    //getAngularSecondMoment(out);
+    //getContrast(out);
     getEntropy(out);
     getVariance(out);
     //getCorrelation(out);
     //getHomogeneity(out);
     getSumAverage(out);
-    getSumVariance(out);
-    getSumEntropy(out);
-    getDifferenceVariance(out);
-    getDifferenceEntropy(out);
-    getInfoMeasuresCorr(out);
+    //getSumVariance(out);
+    //getSumEntropy(out);
+    //getDifferenceVariance(out);
+    //getDifferenceEntropy(out);
+    //getInfoMeasuresCorr(out);
   }
   
   

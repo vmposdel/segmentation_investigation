@@ -117,7 +117,7 @@ bool validateContours(cv::Point2f& mc, int ci)
         HaralickFeaturesExtractor haralickFeaturesDetector_;
         haralickFeaturesDetector_.findHaralickFeatures(ROI);
         std::vector<double> haralickFeatures = haralickFeaturesDetector_.getFeatures();
-        if(haralickFeatures[5] > 1000 && haralickFeatures[1] > 1000)
+        if(haralickFeatures[0] > 3 || haralickFeatures[1] > 3000)
             return false;
         //if(mean[0] > intensityThresh)
         //    return false;
