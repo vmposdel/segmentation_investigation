@@ -111,8 +111,12 @@ bool validateContours(cv::Point2f& mc, int ci)
         //cout << mean[0] << "\n";
         //cv::imshow("curr contour", ROI);
         //cv::waitKey(0);
-        if(mean[0] > intensityThresh)
+        haralickFeaturesDetector_.findHaralickFeatures(grayImage);
+        std::vector<double> haralickFeatures = haralickFeaturesDetector_.getFeatures();
+        if(haralickFeatures[7] > 1000)
             return false;
+        //if(mean[0] > intensityThresh)
+        //    return false;
     }
     else if(cv::contourArea(contours[ci]) < smallContourThresh)
         return false;
@@ -190,7 +194,7 @@ void thresh_callback(int img, void*)
         //cout << "Contours: " << contours.size() << "\n";
         //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         //imshow( "Contours", drawing );
-        imgName << "../../../../dataset_std_variance_contours_BOD_new/" << imageNames.at(img);
+        imgName << "../../../../dataset_std_variance_contours_BOD_new_haralick/" << imageNames.at(img);
         cv::imwrite( imgName.str(), drawing );
         imgName.str("");
     }
@@ -204,7 +208,7 @@ cv::Mat& subtractBackground(cv::Mat& image)
 
 int main()
 {
-    fpw = fopen("../../../../dataset_std_variance_contours_BOD_new/results.txt", "w+");
+    fpw = fopen("../../../../dataset_std_variance_contours_BOD_new_haralick/results.txt", "w+");
     struct timeval startwtime, endwtime;
     double seq_time;
     gettimeofday (&startwtime, NULL);
