@@ -30,6 +30,10 @@ float intensityThresh = 150.0;
 FILE *fpw;
 int img;
 int dimSize = 20;
+std::vector<bool> realContours;
+int neighborThresh = 60;
+int neighborValueThresh = 60;
+float rectDiffThresh = 0.7;
 
 static void captureFrame()
 {
@@ -125,6 +129,26 @@ bool validateContours(cv::Point2f& mc, int ci)
     return true;
 }
 
+bool followUpValidateContours(cv::Point2f* mc, int ci, std::vector<Point2f>& mcv)
+{
+    for(int i = 0; i < contours.size(); i ++)
+    {
+        if(i != ci)
+            if(realContours.at(i) && (abs(mc->x - mcv[i].x) < neighborThresh) && (abs(mc->y - mcv[i].y) < neighborThresh) && (abs((int)image.at<uchar>(mc -> x, mc -> y) - (int)image.at<uchar>(mcv[i].x, mcv[i].y)) < neighborValueThresh))
+            {
+                if(contourArea(contours[i]) > contourArea(contours[ci]))
+                {
+                    return false;
+                }
+                else
+                {
+                    realContours.at(i) = false;
+                }
+            }
+    }
+    return true;
+}
+
 /** @function thresh_callback */
 void thresh_callback(int img, void*)
 {
@@ -144,19 +168,27 @@ void thresh_callback(int img, void*)
     findContours( tempSigma, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
     vector<Moments> mu(contours.size() );
     vector<Point2f> mc( contours.size() );
-    std::vector<bool> realContours;
-        std::vector<vector<Point> > contours_poly( contours.size() );
-        std::vector<Rect> boundRect( contours.size() );
-        std::vector<Point2f>center( contours.size() );
-        std::vector<float>radius( contours.size() );
+    std::vector<vector<Point> > contours_poly( contours.size() );
+    std::vector<cv::Rect> boundRect( contours.size() );
+    std::vector<cv::Point2f>center( contours.size() );
+    std::vector<float>radius( contours.size() );
+    realContours.clear();
     //Mass center
     for( int i = 0; i < contours.size(); i++ ){
         mu[i] = moments( contours[i], false );
         mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
         realContours.push_back(validateContours(mc[i], i));
-                cv::approxPolyDP( cv::Mat(contours[i]), contours_poly[i], 3, true );
-                boundRect[i] = cv::boundingRect( cv::Mat(contours_poly[i]) );
-                cv::minEnclosingCircle( (cv::Mat)contours_poly[i], center[i], radius[i] );
+        cv::approxPolyDP( cv::Mat(contours[i]), contours_poly[i], 3, true );
+        boundRect[i] = cv::boundingRect( cv::Mat(contours_poly[i]) );
+        if(realContours.at(i))
+            if(boundRect[i].width > boundRect[i].height + rectDiffThresh * boundRect[i].height || boundRect[i].height > boundRect[i].width + rectDiffThresh * boundRect[i].width)
+                realContours.at(i) = false;
+        cv::minEnclosingCircle( (cv::Mat)contours_poly[i], center[i], radius[i] );
+    }
+    for( int i = 0; i < contours.size(); i++ )
+    {
+        if(realContours.at(i) && contourArea(contours[i]) < smallContourThresh)
+            realContours.at(i) = followUpValidateContours(&mc[i], i, mc);
     }
 
     if(debugShow)
