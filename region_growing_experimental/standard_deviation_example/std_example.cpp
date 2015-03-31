@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include "math.h"
 #include "include/tinydir.h"
+#include "utilities/include/haralickfeature_extractor.h"
 #include "stdio.h"
 
 using namespace std;
