@@ -32,8 +32,8 @@ int img;
 int dimSize = 20;
 std::vector<bool> realContours;
 int neighborThresh = 60;
-int neighborValueThresh = 60;
-float rectDiffThresh = 0.7;
+int neighborValueThresh = 120;
+float rectDiffThresh = 0.8;
 
 static void captureFrame()
 {
@@ -121,27 +121,32 @@ bool validateContours(cv::Point2f& mc, int ci)
         HaralickFeaturesExtractor haralickFeaturesDetector_;
         haralickFeaturesDetector_.findHaralickFeatures(ROI);
         std::vector<double> haralickFeatures = haralickFeaturesDetector_.getFeatures();
-        if(haralickFeatures[0] > 3 || haralickFeatures[1] > 3000)
-            return false;
+        if(haralickFeatures[0] > 3 && haralickFeatures[1] > 4000)
+            return true;
         //if(mean[0] > intensityThresh)
         //    return false;
     }
     return true;
 }
 
-bool followUpValidateContours(cv::Point2f* mc, int ci, std::vector<Point2f>& mcv)
+bool followUpValidateContours(cv::Point2f* mc, int ci, std::vector<Point2f>* mcv)
 {
     for(int i = 0; i < contours.size(); i ++)
     {
         if(i != ci)
-            if(realContours.at(i) && (abs(mc->x - mcv[i].x) < neighborThresh) && (abs(mc->y - mcv[i].y) < neighborThresh) && (abs((int)image.at<uchar>(mc -> x, mc -> y) - (int)image.at<uchar>(mcv[i].x, mcv[i].y)) < neighborValueThresh))
+            if(realContours.at(i) && (abs(mc->x - (*mcv)[i].x) < neighborThresh) && (abs(mc->y - (*mcv)[i].y) < neighborThresh) && (abs((int)image.at<uchar>(mc -> x, mc -> y) - (int)image.at<uchar>((*mcv)[i].x, (*mcv)[i].y)) < neighborValueThresh))
             {
-                if(contourArea(contours[i]) > contourArea(contours[ci]))
+                if(cv::contourArea(contours[i]) > cv::contourArea(contours[ci]))
                 {
+                    cout << "Merge" << imageNames.at(img) << "\n";
+                    (*mcv)[i].x = ((*mcv)[i].x + mc -> x) / 2;
+                    (*mcv)[i].y = ((*mcv)[i].y + mc -> y) / 2;
                     return false;
                 }
                 else
                 {
+                    mc -> x = ((*mcv)[i].x + mc -> x) / 2;
+                    mc -> y = ((*mcv)[i].y + mc -> y) / 2;
                     realContours.at(i) = false;
                 }
             }
@@ -187,8 +192,8 @@ void thresh_callback(int img, void*)
     }
     for( int i = 0; i < contours.size(); i++ )
     {
-        if(realContours.at(i) && contourArea(contours[i]) < smallContourThresh)
-            realContours.at(i) = followUpValidateContours(&mc[i], i, mc);
+        if(realContours.at(i))
+            realContours.at(i) = followUpValidateContours(&mc[i], i, &mc);
     }
 
     if(debugShow)
@@ -299,7 +304,7 @@ int main()
         sigma.copyTo(sigmaPure);
         //cout << minVal << ", " << maxVal << "\n";
         //image.copyTo(sigma);
-        cv::threshold(sigma, sigma, 80, 255, CV_THRESH_BINARY);
+        cv::threshold(sigma, sigma, 48, 255, CV_THRESH_BINARY);
         cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(8, 8));
         cv::morphologyEx( sigma, sigma, cv::MORPH_CLOSE, structuringElement );
         structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(8, 8));
