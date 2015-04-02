@@ -6,7 +6,7 @@ using namespace cv;
 Mat sigma;
 vector<vector<Point> > contours;
 vector<Vec4i> hierarchy;
-int thresh = 18;
+int thresh = 30;
 int max_thresh = 40;
 RNG rng(12345);
 int gaussiansharpenblur = 4;
@@ -17,10 +17,11 @@ std::vector<cv::Mat> inImages(203);
 std::vector<std::string> imageNames;
 cv::Mat image;
 double bigContourThresh = 15000;
-double hugeContourThresh = 20000;
+double hugeContourThresh = 25000;
 int lowerContourNumberToTestHuge = 4;
-double smallContourThresh = 1500;
-float intensityThresh = 100.0;
+double smallContourThresh = 2500;
+double tinyContourThresh = 800;
+float intensityThresh = 200.0;
 FILE *fpw;
 int img;
 int growingPx = 50;
@@ -32,8 +33,11 @@ int lowerWhitesThresh = 20;
 int higherWhitesThresh = validateThresh * validateThresh * 0.8;
 bool secondPass = false;
 std::vector<bool> realContours;
-int neighborThresh = 60;
+int neighborThresh = 100;
 int rayDiffThresh = 0.5 * validateThresh;
+float neighborWeight = 0.8;
+float rectDiffThresh = 0.8;
+int neighborValueThresh = 30;
 
 static void captureFrame()
 {
@@ -61,15 +65,15 @@ static void captureFrame()
     }
 }
 
-bool validateContours(cv::Point2f* mc, int ci, std::vector<Point2f>& mcv)
+bool validateContours(int ci, std::vector<Point2f>* mcv, std::vector<int>* contourHeight, std::vector<int>* contourWidth)
 {
     if(!secondPass)
     {
         int sumWhites = 0;
-        if(cv::contourArea(contours[ci]) < hugeContourThresh)
+        if(cv::contourArea(contours[ci]) < hugeContourThresh && cv::contourArea(contours[ci]) > tinyContourThresh)
         {
-            for(int i = mc->y - validateThresh; i < mc->y + validateThresh; i ++)
-                for(int j = mc->x - validateThresh; j < mc->x + validateThresh; j ++)
+            for(int i = (*mcv)[ci].y - validateThresh; i < (*mcv)[ci].y + validateThresh; i ++)
+                for(int j = (*mcv)[ci].x - validateThresh; j < (*mcv)[ci].x + validateThresh; j ++)
                     if(j >= 0 && j <= sigma.cols && i >= 0 && i <= sigma.rows )
                     {
                         if((int)sigma.at<uchar>(j, i) == 255)
@@ -79,11 +83,11 @@ bool validateContours(cv::Point2f* mc, int ci, std::vector<Point2f>& mcv)
                     }
             bool horizontalSerie = true;
             int horizontalMaxRay = 0;
-            for(int i = mc->y - validateThresh; i < mc->y + validateThresh; i ++)
+            for(int i = (*mcv)[ci].y - validateThresh; i < (*mcv)[ci].y + validateThresh; i ++)
             {
                 int horizontalSum = 0;
                 horizontalSerie = true;
-                for(int j = mc->x - validateThresh; j < mc->x + validateThresh; j ++)
+                for(int j = (*mcv)[ci].x - validateThresh; j < (*mcv)[ci].x + validateThresh; j ++)
                 {
                     if(j >= 0 && j <= sigma.cols && i >= 0 && i <= sigma.rows )
                     {
@@ -106,11 +110,11 @@ bool validateContours(cv::Point2f* mc, int ci, std::vector<Point2f>& mcv)
             }
             bool verticalSerie = true;
             int verticalMaxRay = 0;
-            for(int i = mc->x - validateThresh; i < mc->x + validateThresh; i ++)
+            for(int i = (*mcv)[ci].x - validateThresh; i < (*mcv)[ci].x + validateThresh; i ++)
             {
                 int verticalSum = 0;
                 verticalSerie = true;
-                for(int j = mc->y - validateThresh; j < mc->y + validateThresh; j ++)
+                for(int j = (*mcv)[ci].y - validateThresh; j < (*mcv)[ci].y + validateThresh; j ++)
                 {
                     if(j >= 0 && j <= sigma.cols && i >= 0 && i <= sigma.rows )
                     {
@@ -132,28 +136,79 @@ bool validateContours(cv::Point2f* mc, int ci, std::vector<Point2f>& mcv)
                     break;
             }
             if(horizontalSerie || verticalSerie)
-            cout << abs(horizontalMaxRay - verticalMaxRay) << "\n";
+                cout << abs(horizontalMaxRay - verticalMaxRay) << "\n";
 
-            if(sumWhites > lowerWhitesThresh && sumWhites < higherWhitesThresh && ((!horizontalSerie && !verticalSerie) || abs(horizontalMaxRay - verticalMaxRay) < rayDiffThresh))
-                return true;
-            else
-                return false;
+            //if(sumWhites > lowerWhitesThresh && sumWhites < higherWhitesThresh && ((!horizontalSerie && !verticalSerie) || abs(horizontalMaxRay - verticalMaxRay) < rayDiffThresh))
+            //    return true;
+            //else
+            //    return false;
+            return true;
         }
         else
             return false;
     }
     else
     {
-        for(int i = 0; i < contours.size(); i ++)
+        if(cv::contourArea(contours[ci]) > smallContourThresh)
         {
-            if(i != ci)
-                if(realContours.at(i) && (abs(mc->x - mcv[i].x) < neighborThresh) && (abs(mc->y - mcv[i].y) < neighborThresh))
+            std::vector<int> contoursToMerge;
+            for(int i = 0; i < contours.size(); i ++)
+            {
+                if(i != ci)
+                    if(realContours.at(i) && (abs((*mcv)[ci].x - (*mcv)[i].x) < neighborThresh) && (abs((*mcv)[ci].y - (*mcv)[i].y) < neighborThresh) && (abs((int)image.at<uchar>((*mcv)[ci].x, (*mcv)[ci].y) - (int)image.at<uchar>((*mcv)[i].x, (*mcv)[i].y)) < neighborValueThresh))
+                        contoursToMerge.push_back(i);
+            }
+            int newIndX = (*mcv)[ci].x;
+            int newIndY = (*mcv)[ci].y;
+            int contoursCounter = contoursToMerge.size();
+            for(int i = 0; i < contoursToMerge.size(); i ++)
+            {
+                //if(cv::contourArea(contours[contoursToMerge[i]]) > cv::contourArea(contours[ci]))
+                //{
+                //    cout << "Merge" << imageNames.at(img) << "\n";
+                //    (*mcv)[contoursToMerge[i]].x = ((*mcv)[contoursToMerge[i]].x * neighborWeight + (*mcv)[ci].x * (1 - neighborWeight));
+                //    (*mcv)[contoursToMerge[i]].y = ((*mcv)[contoursToMerge[i]].y * neighborWeight + (*mcv)[ci].y * (1 - neighborWeight));
+                //    (*contourHeight)[contoursToMerge[i]] = (*contourHeight)[contoursToMerge[i]] + (*contourHeight)[ci] + abs((*mcv)[ci].y - (*mcv)[contoursToMerge[i]].y);
+                //    (*contourWidth)[contoursToMerge[i]] = (*contourWidth)[contoursToMerge[i]] + (*contourWidth)[ci] + abs((*mcv)[ci].x - (*mcv)[contoursToMerge[i]].x);
+                //    return false;
+                //}
+                //else
+                //{
+                //    (*mcv)[ci].x = ((*mcv)[contoursToMerge[i]].x * (1 - neighborWeight) + (*mcv)[ci].x * neighborWeight);
+                //    (*mcv)[ci].y = ((*mcv)[contoursToMerge[i]].y * (1 - neighborWeight) + (*mcv)[ci].y * neighborWeight);
+                //    (*contourHeight)[ci] = (*contourHeight)[ci] + (*contourHeight)[contoursToMerge[i]] + abs((*mcv)[ci].y - (*mcv)[contoursToMerge[i]].y);
+                //    (*contourWidth)[ci] = (*contourWidth)[ci] + (*contourWidth)[contoursToMerge[i]] + abs((*mcv)[ci].x - (*mcv)[contoursToMerge[i]].x);
+                //    realContours.at(contoursToMerge[i]) = false;
+                //}
+                if(realContours.at(contoursToMerge[i]) && cv::contourArea(contours[contoursToMerge[i]]) > smallContourThresh)
                 {
-                    //cout << realContours.at(i) << "," << abs(mc.x - mcv[i].x) << "," << abs(mc.y - mcv[i].y) << "\n";
-                    mc->x = (mc->x + mcv[i].x) / 2;
-                    mc->y = (mc->y + mcv[i].y) / 2;
-                    realContours.at(i) = false;
+                    //realContours.at(contoursToMerge[i]) = validateContours(contoursToMerge[i], mcv, contourHeight, contourWidth); 
+                    newIndX += (*mcv)[contoursToMerge[i]].x;
+                    newIndY += (*mcv)[contoursToMerge[i]].y;
+                    (*contourHeight)[ci] += (*contourHeight)[contoursToMerge[i]] + abs((*mcv)[ci].y - (*mcv)[contoursToMerge[i]].y);
+                    (*contourWidth)[ci] += (*contourWidth)[contoursToMerge[i]] + abs((*mcv)[ci].x - (*mcv)[contoursToMerge[i]].x);
+                    for(int j = 0; j < contours.size(); j ++)
+                    {
+                        if(j != ci && j != contoursToMerge[i])
+                            if(realContours.at(j) && cv::contourArea(contours[j]) > smallContourThresh && (abs((*mcv)[contoursToMerge[i]].x - (*mcv)[j].x) < neighborThresh) && (abs((*mcv)[contoursToMerge[i]].y - (*mcv)[j].y) < neighborThresh) && (abs((int)image.at<uchar>((*mcv)[contoursToMerge[i]].x, (*mcv)[contoursToMerge[i]].y) - (int)image.at<uchar>((*mcv)[j].x, (*mcv)[j].y)) < neighborValueThresh))
+                            {
+                                newIndX += (*mcv)[j].x;
+                                newIndY += (*mcv)[j].y;
+                                contoursCounter ++;
+                                realContours.at(j) = false;
+                                (*contourHeight)[ci] += (*contourHeight)[j] + abs((*mcv)[ci].y - (*mcv)[j].y);
+                                (*contourWidth)[ci] += (*contourWidth)[j] + abs((*mcv)[ci].y - (*mcv)[j].y);
+                            }
+                    }
+                    realContours.at(contoursToMerge[i]) = false;
+                    contoursCounter ++;
                 }
+            }
+            if(contoursCounter > 0)
+            {
+                (*mcv)[ci].x = (int)(newIndX / contoursCounter);
+                (*mcv)[ci].y = (int)(newIndY / contoursCounter);
+            }
         }
         return true;
     }
@@ -182,21 +237,32 @@ void thresh_callback(int img, void*)
     findContours( tempSigma, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
     vector<Moments> mu(contours.size());
     vector<Point2f> mc(contours.size());
+    std::vector<vector<Point> > contours_poly( contours.size() );
+    std::vector<cv::Rect> boundRect( contours.size() );
+    std::vector<int> contourWidth(contours.size());
+    std::vector<int> contourHeight(contours.size());
     //Mass center
     realContours.clear();
     for(int i = 0; i < contours.size(); i ++)
     {
         mu[i] = moments( contours[i], false );
         mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 );
-        realContours.push_back(validateContours(&mc[i], i, mc));
+        cv::approxPolyDP( cv::Mat(contours[i]), contours_poly[i], 3, true );
+        boundRect[i] = cv::boundingRect( cv::Mat(contours_poly[i]) );
+        contourHeight[i] = boundRect[i].height;
+        contourWidth[i] = boundRect[i].width;
+        realContours.push_back(validateContours(i, &mc, &contourHeight, &contourWidth));
     }
     secondPass = true;
     for(int i = 0; i < contours.size(); i ++)
     {
         if(realContours.at(i))
         {
-            realContours.at(i) = validateContours(&mc[i], i, mc);
+            realContours.at(i) = validateContours(i, &mc, &contourHeight, &contourWidth);
         }
+        if(realContours.at(i))
+            if(contourWidth[i] > contourHeight[i] + rectDiffThresh * contourHeight[i] || contourHeight[i] > contourWidth[i] + rectDiffThresh * contourWidth[i])
+                realContours.at(i) = false;
     }
     secondPass = false;
     if(debugShow)
@@ -271,7 +337,7 @@ int main()
         cv::threshold(sigma, sigma, 1, 255, CV_THRESH_BINARY_INV);
         cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2, 2));
         cv::morphologyEx( sigma, sigma, cv::MORPH_OPEN, structuringElement );
-        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
+        structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(24, 24));
         cv::morphologyEx( sigma, sigma, cv::MORPH_CLOSE, structuringElement );
         for(int i = 0; i < borderThresh; i ++)
             for(int j = 0; j < sigma.cols; j ++)
