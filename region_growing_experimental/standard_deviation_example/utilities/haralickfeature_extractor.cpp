@@ -548,11 +548,11 @@
     
     //getAngularSecondMoment(out);
     //getContrast(out);
-    getEntropy(out);
-    getVariance(out);
+    //getEntropy(out);
+    //getVariance(out);
     //getCorrelation(out);
-    //getHomogeneity(out);
-    getSumAverage(out);
+    getHomogeneity(out);
+    //getSumAverage(out);
     //getSumVariance(out);
     //getSumEntropy(out);
     //getDifferenceVariance(out);
